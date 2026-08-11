@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#1E88E5</color>
+    <color name="brand_primary_dark">#1565C0</color>
+    <color name="feed_background">#000000</color>
+    <color name="controls_background">#1C1C1C</color>
+    <color name="status_pill_background">#B3000000</color>
+    <color name="status_pill_text">#FFFFFF</color>
+    <color name="icon_background">#1565C0</color>
+    <color name="icon_foreground">#FFFFFF</color>
+</resources>

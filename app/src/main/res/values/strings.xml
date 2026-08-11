@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Camera Viewer</string>
+    <string name="settings_title">Settings</string>
+    <string name="camera_feed_description">Live camera feed</string>
+
+    <string name="status_idle">Idle</string>
+    <string name="start_monitoring">Start monitoring</string>
+    <string name="stop_monitoring">Stop monitoring</string>
+
+    <!-- First-run role picker -->
+    <string name="role_picker_title">What is this device?</string>
+    <string name="role_picker_message">Sender phones host a camera and detect people. Viewer phones watch the live feed and receive alerts. You can still fill in either role\'s settings by hand later if needed.</string>
+    <string name="role_sender">Sender (camera)</string>
+    <string name="role_viewer">Viewer</string>
+
+    <string name="channel_status_name">Monitoring status</string>
+    <string name="channel_status_description">Ongoing notification shown while the camera is being monitored</string>
+
+    <string name="settings_tailscale_token_label">Tailscale API access token</string>
+    <string name="settings_tailscale_token_help">From https://login.tailscale.com/admin/settings/keys — the "Generate access token" button, not "Generate auth key". Starts with tskey-api-.</string>
+    <string name="settings_tailscale_token_hint">tskey-api-…</string>
+    <string name="settings_camera_username_label">Camera username</string>
+    <string name="settings_camera_password_label">Camera password</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_saved">Saved.</string>
+    <string name="settings_incomplete">All three fields are required.</string>
+
+    <!-- Person detection (camera role) -->
+    <string name="settings_person_detection_heading">Person detection (this phone as a camera)</string>
+    <string name="settings_camera_label_label">This camera\'s name</string>
+    <string name="settings_camera_label_hint">e.g. Front porch</string>
+    <string name="settings_alert_targets_label">Alert these viewer phones (Tailscale IPs/hostnames, comma-separated)</string>
+    <string name="settings_alert_targets_hint">100.x.x.x, 100.y.y.y</string>
+    <string name="settings_scan_tailnet">Scan tailnet for viewers</string>
+    <string name="settings_scan_tailnet_need_token">Enter a Tailscale API token above first</string>
+    <string name="settings_scan_tailnet_scanning">Scanning tailnet…</string>
+    <string name="settings_scan_tailnet_found">Found %1$d viewer(s), added to Alert targets</string>
+    <string name="settings_scan_tailnet_none_found">No viewers found on the tailnet</string>
+    <string name="settings_scan_tailnet_failed">Scan failed: %1$s</string>
+    <string name="start_person_detection">Start person detection</string>
+    <string name="stop_person_detection">Stop person detection</string>
+    <string name="detection_notification_title">Person detection</string>
+    <string name="channel_detection_name">Person detection status</string>
+    <string name="channel_person_alerts_name">Person detected (this camera)</string>
+    <string name="person_detected_title">Person detected — %1$s</string>
+    <string name="channel_snapshot_server_name">Snapshot server status</string>
+    <string name="serving_snapshots">Serving snapshots to viewers</string>
+    <string name="settings_snapshot_retention_label">Snapshots to keep</string>
+    <string name="settings_snapshot_retention_hint">20</string>
+
+    <!-- Alert listening (viewer role) -->
+    <string name="settings_alert_listening_heading">Listen for alerts</string>
+    <string name="start_listening">Start listening for alerts</string>
+    <string name="stop_listening">Stop listening for alerts</string>
+    <string name="listening_for_alerts">Listening for camera alerts</string>
+    <string name="channel_alert_listener_name">Alert listener status</string>
+    <string name="channel_incoming_alerts_name">Person detected (other cameras)</string>
+    <string name="tap_to_view">Tap to view</string>
+    <string name="listening_status_on">Listening</string>
+    <string name="listening_status_off">Not listening</string>
+
+    <!-- Snapshot browsing (viewer role) -->
+    <string name="view_snapshots">View snapshots</string>
+    <string name="snapshots_title">Snapshots</string>
+    <string name="snapshots_loading">Loading…</string>
+    <string name="snapshots_empty">No snapshots yet</string>
+    <string name="snapshots_load_failed">Couldn\'t load snapshots: %1$s</string>
+    <string name="snapshots_no_camera">No camera known yet — open a "Person detected" alert first</string>
+    <string name="delete_snapshot">Delete</string>
+    <string name="snapshot_delete_failed">Couldn\'t delete — camera unreachable?</string>
+</resources>

@@ -1,0 +1,20 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // AGP 9.x bundles Kotlin/Android support directly — applying
+        // org.jetbrains.kotlin.android separately double-registers the
+        // "kotlin" project extension and crashes evaluation. No explicit
+        // kotlin-gradle-plugin classpath entry needed.
+        classpath 'com.android.tools.build:gradle:9.3.1'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

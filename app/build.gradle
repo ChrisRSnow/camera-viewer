@@ -1,0 +1,61 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = 'com.cameraviewer.app'
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.cameraviewer.app"
+        minSdk = 26
+        targetSdk = 37
+        // Bump versionCode on every release build; versionName follows
+        // semantic versioning (MAJOR.MINOR.PATCH) — see CHANGELOG.md.
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+        }
+        release {
+            minifyEnabled = false
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+
+    // The bundled TFLite model (assets/person_detector.tflite) must stay
+    // uncompressed in the APK — TFLite mmaps it directly at load time, and a
+    // compressed asset fails to load with an unhelpful native error.
+    androidResources {
+        noCompress += "tflite"
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.material:material:1.14.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.2'
+    implementation 'androidx.lifecycle:lifecycle-service:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+
+    // EncryptedSharedPreferences — Android Keystore-backed secure storage for
+    // the Tailscale API token and camera credentials (see SecureCredentialStore).
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
+    // On-device person detection (PersonDetector) — Task Vision wraps the
+    // bundled metadata-populated TFLite model (COCO-trained EfficientDet-Lite0,
+    // assets/person_detector.tflite) with preprocessing, NMS, and label
+    // parsing already implemented, so no hand-rolled SSD decoding here.
+    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4'
+}

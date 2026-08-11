@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Permits plain HTTP for this app. Scoped to the whole app rather than
+  specific hosts because Tailscale IPs are user-entered and dynamic (Android's
+  network security config has no CIDR support, only exact hosts/IP literals,
+  so a Tailscale-CGNAT-range allowance isn't expressible here) — and this app
+  never talks to the general internet at all, only localhost (the camera app)
+  and tailnet peers. The one thing that's actually cleartext is the alert
+  POST/listen path (AlertClient/AlertReceiverService), which is already
+  deliberately unauthenticated by design: see AlertClient's own doc comment —
+  "Tailscale network membership IS the access control." Camera streaming
+  (MjpegClient/CameraProber) already uses TLS regardless of this setting.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -1,0 +1,21 @@
+# Android/Gradle build output
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# TFLite model — not redistributed here, see ARCHITECTURE.md §3 for why
+# and where to get it. The build will fail without this file present.
+app/src/main/assets/person_detector.tflite
+
+# Signing
+*.jks
+*.keystore

@@ -1,0 +1,159 @@
+package com.cameraviewer.app
+
+import android.content.Intent
+import android.os.Bundle
+import android.view.View
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.cameraviewer.app.databinding.ActivitySettingsBinding
+import kotlinx.coroutines.launch
+
+/**
+ * Edits everything stored via SecureCredentialStore (Keystore-backed
+ * EncryptedSharedPreferences — never written to a plain file, never
+ * hardcoded into source): the Tailscale API token + camera login (needed by
+ * both roles — see their own field comments), and the camera label + alert
+ * targets used for the sender role specifically.
+ *
+ * Section visibility follows the device's chosen role (set once via
+ * MainActivity's first-run prompt): sectionSender is hidden for a viewer
+ * device, sectionViewer is hidden for a sender device. This doesn't actually
+ * restrict either role's fields from being filled in by hand if the role is
+ * unset (shows both) — it only controls the default, role-appropriate view.
+ */
+class SettingsActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivitySettingsBinding
+    private lateinit var credentialStore: SecureCredentialStore
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivitySettingsBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        title = getString(R.string.settings_title)
+        credentialStore = SecureCredentialStore(this)
+
+        binding.editTailscaleToken.setText(credentialStore.tailscaleApiToken.orEmpty())
+        binding.editCameraUsername.setText(credentialStore.cameraUsername.orEmpty())
+        binding.editCameraPassword.setText(credentialStore.cameraPassword.orEmpty())
+        binding.editCameraLabel.setText(credentialStore.cameraLabel.orEmpty())
+        binding.editAlertTargets.setText(credentialStore.alertTargets.orEmpty())
+        binding.editSnapshotRetention.setText(credentialStore.snapshotRetentionCount.toString())
+
+        applyRoleVisibility()
+
+        binding.btnSave.setOnClickListener { save() }
+        binding.btnScanTailnet.setOnClickListener { scanTailnetForViewers() }
+        binding.btnStartDetection.setOnClickListener { startDetection() }
+        binding.btnStopDetection.setOnClickListener { stopDetection() }
+        binding.btnStartListening.setOnClickListener { startListening() }
+        binding.btnStopListening.setOnClickListener { stopListening() }
+    }
+
+    /** Role unset (shouldn't normally happen post-first-run) shows both sections rather than hiding everything. */
+    private fun applyRoleVisibility() {
+        when (credentialStore.deviceRole) {
+            SecureCredentialStore.ROLE_SENDER -> binding.sectionViewer.visibility = View.GONE
+            SecureCredentialStore.ROLE_VIEWER -> binding.sectionSender.visibility = View.GONE
+        }
+    }
+
+    private fun save() {
+        credentialStore.tailscaleApiToken = binding.editTailscaleToken.text.toString().trim()
+        credentialStore.cameraUsername = binding.editCameraUsername.text.toString().trim()
+        credentialStore.cameraPassword = binding.editCameraPassword.text.toString()
+        credentialStore.cameraLabel = binding.editCameraLabel.text.toString().trim()
+        credentialStore.alertTargets = binding.editAlertTargets.text.toString().trim()
+        credentialStore.snapshotRetentionCount = binding.editSnapshotRetention.text.toString().trim().toIntOrNull()
+            ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_SNAPSHOT_RETENTION
+        // Credentials changed — a cached IP found under old/different
+        // credentials shouldn't be trusted until discovery re-confirms it.
+        credentialStore.lastKnownCameraIp = null
+
+        binding.textSaveConfirmation.visibility = View.VISIBLE
+        Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
+
+        // Sender's "auto-poll for listener devices after 1st configuration"
+        // behavior — every save, not just tracking a true first-time flag,
+        // which naturally covers "after 1st configuration" without extra state.
+        if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER &&
+            credentialStore.tailscaleApiToken?.isNotBlank() == true
+        ) {
+            scanTailnetForViewers()
+        }
+
+        // Same reasoning for auto-starting detection: no separate "is Android
+        // IP Camera running" check needed, CameraDetectionService retries
+        // with backoff until its local connection succeeds either way.
+        if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER && credentialStore.isCameraRoleConfigured) {
+            ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
+            ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+        }
+    }
+
+    /**
+     * Enumerates tailnet peers and probes each one for an open ALERT_PORT
+     * (ViewerProber — see its own doc comment on why this is a weaker check
+     * than CameraProber's cert fingerprint). Matches are merged into the
+     * existing Alert targets field, deduplicated, rather than overwriting
+     * whatever's already there by hand.
+     */
+    private fun scanTailnetForViewers() {
+        val token = binding.editTailscaleToken.text.toString().trim()
+        if (token.isEmpty()) {
+            Toast.makeText(this, R.string.settings_scan_tailnet_need_token, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.btnScanTailnet.isEnabled = false
+        binding.textScanStatus.text = getString(R.string.settings_scan_tailnet_scanning)
+
+        lifecycleScope.launch {
+            try {
+                val found = ViewerScan.findViewers(token)
+                if (found.isEmpty()) {
+                    binding.textScanStatus.text = getString(R.string.settings_scan_tailnet_none_found)
+                } else {
+                    val merged = ViewerScan.mergeTargets(binding.editAlertTargets.text.toString(), found)
+                    binding.editAlertTargets.setText(merged)
+                    credentialStore.alertTargets = merged
+                    binding.textScanStatus.text = getString(R.string.settings_scan_tailnet_found, found.size)
+                }
+            } catch (e: Exception) {
+                binding.textScanStatus.text = getString(R.string.settings_scan_tailnet_failed, e.message ?: e.toString())
+            } finally {
+                binding.btnScanTailnet.isEnabled = true
+            }
+        }
+    }
+
+    private fun startDetection() {
+        save()
+        if (!credentialStore.isCameraRoleConfigured) {
+            Toast.makeText(this, R.string.settings_incomplete, Toast.LENGTH_SHORT).show()
+            return
+        }
+        ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
+        ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+    }
+
+    private fun stopDetection() {
+        val intent = Intent(this, CameraDetectionService::class.java).apply {
+            action = CameraDetectionService.ACTION_STOP
+        }
+        startService(intent)
+    }
+
+    private fun startListening() {
+        ContextCompat.startForegroundService(this, Intent(this, AlertReceiverService::class.java))
+    }
+
+    private fun stopListening() {
+        val intent = Intent(this, AlertReceiverService::class.java).apply {
+            action = AlertReceiverService.ACTION_STOP
+        }
+        startService(intent)
+    }
+}
