@@ -159,10 +159,20 @@ notifications, which makes it look broken when it isn't.
 `USE_FULL_SCREEN_INTENT` so the viewer's screen wakes and shows the alert
 prominently without needing a tap first (see
 [ARCHITECTURE.md §9](ARCHITECTURE.md#9-full-screen-alert-notifications)
-for why this doesn't bypass the lock screen). On some Android versions
-this permission can be revoked by the user after install (Settings →
-Apps → Camera Viewer → check for a "Full screen notifications" or similar
-toggle) — if alerts arrive but never wake the screen, check this first.
+for why this doesn't bypass the lock screen). On Android 14+, a freshly
+installed app is **not** automatically granted this permission — check
+**Settings → Apps → Special app access → Full screen intent** (may also
+be worded "Send full-screen notifications") and make sure Camera Viewer
+is enabled there. Separately, also check the per-app notification
+**"Banner"** toggle (Settings → Apps → Camera Viewer → Notifications →
+the alert channel) is on — on some OxygenOS versions both of these
+appear to matter together, and it isn't clear which one alone is
+sufficient. If alerts arrive (check the notification shade) but never
+appear prominently while the screen is on and unlocked, check both of
+these first. Note that even with everything granted, Android's
+documented behavior is to show a heads-up banner rather than a true
+full-screen takeover when the screen is already unlocked — the full
+takeover is reserved for locked/off/always-on-display states.
 
 **Doze mode / App Standby**: if a phone sits completely stationary and
 unused for a long time, stock Android's Doze mode can further restrict
