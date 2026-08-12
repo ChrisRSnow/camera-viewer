@@ -6,6 +6,5 @@
     <color name="controls_background">#1C1C1C</color>
     <color name="status_pill_background">#B3000000</color>
     <color name="status_pill_text">#FFFFFF</color>
-    <color name="icon_background">#1565C0</color>
-    <color name="icon_foreground">#FFFFFF</color>
+    <color name="icon_background">#000000</color>
 </resources>
