@@ -41,20 +41,26 @@ browses whichever camera is currently selected (or the last one watched).
 The alert listener starts automatically on launch — the label next to it
 shows whether it's actually bound to its port.
 
-## Windows: building a standalone .exe
+## Standalone binaries (no Python install needed to run, just to build)
 
-Not built or tested from this repo (this was developed on Linux, and
-cross-compiling a Windows executable from Linux with PyInstaller isn't
-reliably supported). To build one, run this **on a Windows machine**, from
-this directory, inside the venv:
-```
-pip install pyinstaller
-pyinstaller --onefile --windowed --name CameraViewer main.py
-```
-The resulting `.exe` lands in `dist/`. This hasn't been tried yet — if
-`--windowed` causes issues with PySide6's Qt plugin loading in a frozen
-build, `pyinstaller --onefile --name CameraViewer main.py` (console window
-visible, useful for seeing errors) is the fallback to try first.
+Both platforms use [PyInstaller](https://pyinstaller.org) to bundle Python
++ all dependencies into a single executable.
+
+**Linux**: `./build_linux.sh` — builds `dist/CameraViewer`. Verified
+working: built and run from a completely different directory with no venv
+active, starts cleanly.
+
+**Windows**: `build_windows.bat`, run **on a Windows machine** (PyInstaller
+doesn't cross-compile — a Windows `.exe` has to be built on Windows).
+Builds `dist\CameraViewer.exe`. This mirrors the Linux script but hasn't
+actually been run on Windows — if `--windowed` causes a Qt plugin loading
+issue in the frozen build (a known PyInstaller+Qt gotcha on some setups),
+edit the script to drop `--windowed` and rebuild; that leaves a console
+window visible alongside the GUI, useful for seeing the actual error.
+
+Neither binary is committed to the repo (see `.gitignore`) — build it
+yourself on the target platform, or grab one distributed separately if
+you've been given one directly.
 
 ## Protocol notes
 

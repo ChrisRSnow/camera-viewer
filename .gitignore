@@ -23,3 +23,6 @@ app/src/main/assets/person_detector.tflite
 # Desktop viewer
 desktop-viewer/.venv/
 desktop-viewer/__pycache__/
+desktop-viewer/build/
+desktop-viewer/dist/
+desktop-viewer/*.spec
