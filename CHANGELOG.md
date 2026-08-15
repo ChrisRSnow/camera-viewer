@@ -12,6 +12,15 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.5.1]
+
+- Lowered the person-detection confidence threshold (0.5 → 0.35): a
+  person a few metres from the camera occupies a much smaller fraction of
+  the fixed 320x320 frame EfficientDet-Lite0 runs inference on than a
+  close/large subject does, and was scoring below 0.5 despite being a
+  real, correctly-identified person — not noise. Trade-off: somewhat more
+  willing to flag ambiguous person-shaped things.
+
 ## [1.5.0]
 
 - Added a last-snapshot thumbnail (viewer role): a small corner overlay on

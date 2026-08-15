@@ -75,7 +75,13 @@ class PersonDetector(context: Context) {
     companion object {
         private const val TAG = "PersonDetector"
         private const val MODEL_ASSET = "person_detector.tflite"
-        private const val MIN_SCORE = 0.5f
+        // Lowered from 0.5 - EfficientDet-Lite0 downscales every frame to a
+        // fixed 320x320 before inference, so a distant person (occupying a
+        // small fraction of the frame) scores meaningfully lower than a
+        // close/large one even when clearly a person - 0.5 was filtering
+        // out real, distant detections, not just noise. Trade-off: more
+        // willing to flag ambiguous person-shaped things at this threshold.
+        private const val MIN_SCORE = 0.35f
         private const val CONSECUTIVE_FRAMES_REQUIRED = 2
         private const val ALERT_COOLDOWN_MS = 30_000L
     }
