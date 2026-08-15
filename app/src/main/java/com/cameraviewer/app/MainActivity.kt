@@ -256,11 +256,7 @@ class MainActivity : AppCompatActivity() {
             SecureCredentialStore.ROLE_VIEWER ->
                 ContextCompat.startForegroundService(this, Intent(this, AlertReceiverService::class.java))
             SecureCredentialStore.ROLE_SENDER -> {
-                if (credentialStore.isCameraRoleConfigured) {
-                    ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
-                    ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
-                    ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
-                }
+                ensureSenderServicesRunning()
                 val token = credentialStore.tailscaleApiToken
                 if (!token.isNullOrBlank()) {
                     lifecycleScope.launch {
@@ -272,6 +268,27 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Explicitly (re-)starts the sender-side services, not just binds to
+     * them. Matters specifically because MainActivity.onStart() binds to
+     * CameraDetectionService with BIND_AUTO_CREATE, which recreates the
+     * service object if the OS killed it while backgrounded — but binding
+     * alone never calls onStartCommand(), so a bind-only recreate leaves
+     * the detection loop never actually started: the service exists,
+     * reports its default "Idle" status forever, and never connects,
+     * until something else happens to call startForegroundService again.
+     * Calling this from onStart() (as well as applyRoleStartupBehavior on
+     * launch) closes that gap — cheap and safe to call repeatedly, since
+     * CameraDetectionService's onStartCommand already no-ops if a
+     * connection is already active.
+     */
+    private fun ensureSenderServicesRunning() {
+        if (credentialStore.deviceRole != SecureCredentialStore.ROLE_SENDER || !credentialStore.isCameraRoleConfigured) return
+        ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
+        ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+        ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -304,9 +321,14 @@ class MainActivity : AppCompatActivity() {
         // explicit startForegroundService call), it just lets this screen
         // observe whatever state it's actually in.
         bindService(Intent(this, AlertReceiverService::class.java), alertReceiverConnection, Context.BIND_AUTO_CREATE)
-        // Sender's local feed — same "binding doesn't start it" reasoning;
-        // applyRoleStartupBehavior is what actually starts detection.
+        // Sender's local feed — same "binding doesn't start it" reasoning.
+        // Unlike the two binds above, this one is paired with an explicit
+        // restart call every time (ensureSenderServicesRunning, below) —
+        // see its own doc comment for why binding alone isn't sufficient
+        // here specifically (a bind-triggered recreate after the OS killed
+        // the service left it stuck reporting "Idle" forever).
         bindService(Intent(this, CameraDetectionService::class.java), cameraDetectionConnection, Context.BIND_AUTO_CREATE)
+        ensureSenderServicesRunning()
         refreshLastSnapshotThumbnail()
     }
 

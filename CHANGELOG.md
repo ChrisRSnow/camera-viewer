@@ -12,6 +12,18 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.7.1]
+
+- Fixed a real bug: the main screen could get permanently stuck showing
+  "Idle" (never reconnecting) after `CameraDetectionService` was killed
+  by the OS while backgrounded and the app returned to the foreground.
+  `MainActivity.onStart()` re-binds to the service with `BIND_AUTO_CREATE`,
+  which recreates the service object if it was killed — but binding alone
+  never calls `onStartCommand()`, so the detection loop never actually
+  restarted; the freshly-recreated service just sat reporting its default
+  "Idle" state forever. `onStart()` now explicitly restarts the sender
+  services (not just binds), closing that gap.
+
 ## [1.7.0]
 
 - Added automatic camera rotation ("Auto-detect camera orientation" in
