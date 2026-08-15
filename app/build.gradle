@@ -10,8 +10,8 @@ android {
         targetSdk = 37
         // Bump versionCode on every release build; versionName follows
         // semantic versioning (MAJOR.MINOR.PATCH) — see CHANGELOG.md.
-        versionCode = 11
-        versionName = "1.5.1"
+        versionCode = 12
+        versionName = "1.5.2"
     }
 
     compileOptions {

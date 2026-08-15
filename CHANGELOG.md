@@ -12,6 +12,16 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.5.2]
+
+- Fixed "View Snapshots" and the last-snapshot thumbnail always showing
+  "No camera known yet" on a sender device — `lastKnownCameraIp` is only
+  ever populated by the viewer's remote-connect flow, which a sender never
+  goes through for itself. Both now query `127.0.0.1` on a sender device,
+  reusing the exact same SnapshotServerService/SnapshotFetcher path a
+  viewer uses against a remote camera, since the server already binds all
+  interfaces including loopback.
+
 ## [1.5.1]
 
 - Lowered the person-detection confidence threshold (0.5 → 0.35): a

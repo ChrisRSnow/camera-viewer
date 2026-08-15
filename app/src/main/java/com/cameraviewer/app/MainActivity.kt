@@ -156,7 +156,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnViewSnapshots.setOnClickListener {
-            val ip = credentialStore.lastKnownCameraIp
+            // On a sender, lastKnownCameraIp is never set — that field only
+            // gets populated by the viewer's remote-connect flow, and a
+            // sender never connects to a remote camera "as a viewer" in that
+            // sense. But SnapshotServerService binds all interfaces
+            // (including loopback), so a sender can just query itself at
+            // 127.0.0.1 through the exact same SnapshotFetcher/
+            // SnapshotsActivity code a viewer uses against a remote camera —
+            // no separate "local snapshots" code path needed.
+            val ip = if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER) {
+                "127.0.0.1"
+            } else {
+                credentialStore.lastKnownCameraIp
+            }
             startActivity(
                 Intent(this, SnapshotsActivity::class.java).apply {
                     putExtra(SnapshotsActivity.EXTRA_CAMERA_IP, ip)
@@ -422,7 +434,13 @@ class MainActivity : AppCompatActivity() {
      * just leaves the thumbnail hidden rather than showing an error.
      */
     private fun refreshLastSnapshotThumbnail() {
-        val ip = credentialStore.lastKnownCameraIp
+        // Same reasoning as btnViewSnapshots: a sender has no
+        // lastKnownCameraIp of its own, so query itself at 127.0.0.1.
+        val ip = if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER) {
+            "127.0.0.1"
+        } else {
+            credentialStore.lastKnownCameraIp
+        }
         if (ip.isNullOrBlank()) {
             binding.imgLastSnapshot.visibility = View.GONE
             return
