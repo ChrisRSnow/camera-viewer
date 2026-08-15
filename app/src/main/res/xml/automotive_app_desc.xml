@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Declares this app's notifications as car-compatible so Android Auto
+     extends them to the car screen. Person-detection alerts are framed as
+     MessagingStyle notifications specifically because Android Auto's
+     image-usage rules (IU-1) only permit a static content image on
+     Messaging-category notifications (photo attachments in a
+     conversation) - see AlertReceiverService's doc comment.
+-->
+<automotiveApp>
+    <uses name="notification" />
+</automotiveApp>

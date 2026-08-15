@@ -7,10 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -167,7 +169,43 @@ class AlertReceiverService : Service() {
         return sb.toString()
     }
 
+    /**
+     * Fires the alert immediately (fast — unchanged from before), then, if
+     * a camera IP is known, asynchronously fetches that camera's just-taken
+     * snapshot (CameraDetectionService saves it before sending the alert,
+     * so it's already available by the time this arrives) and updates the
+     * same notification with it. Two-step rather than fetching first:
+     * the whole point of full-screen-intent is feeling instant, and a
+     * network round-trip before the phone-side alert fires would undercut
+     * that. Updating afterward doesn't re-trigger full-screen-intent (that
+     * only fires for a genuinely new alerting notification, not an update
+     * to an existing one) — it just quietly enriches it a moment later.
+     *
+     * The enrichment is specifically framed as MessagingStyle (the camera
+     * "sending a message" with a photo) rather than just adding
+     * setLargeIcon() to the plain notification: Android Auto's image-usage
+     * rules (IU-1) only permit a static content image on notifications in
+     * the Messaging category — see the automotive_app_desc.xml/manifest
+     * meta-data declaring this app's notifications as car-compatible.
+     * **Not verified against a real Android Auto head unit** — built to
+     * the documented spec, but unconfirmed on real hardware.
+     */
     private fun fireAlertNotification(label: String, cameraIp: String) {
+        val pending = alertContentIntent(label, cameraIp)
+        notifyAlert(buildAlertNotification(label, pending, snapshot = null))
+
+        if (cameraIp.isBlank()) return
+        scope.launch {
+            val bitmap = runCatching {
+                SnapshotFetcher.list(cameraIp).firstOrNull()?.let { SnapshotFetcher.fetchImage(cameraIp, it.filename) }
+            }.getOrNull()
+            if (bitmap != null) {
+                notifyAlert(buildAlertNotification(label, pending, snapshot = bitmap))
+            }
+        }
+    }
+
+    private fun alertContentIntent(label: String, cameraIp: String): PendingIntent {
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra(MainActivity.EXTRA_AUTO_CONNECT, true)
             // Lets the viewer connect straight to THIS camera instead of
@@ -178,8 +216,11 @@ class AlertReceiverService : Service() {
                 putExtra(MainActivity.EXTRA_CAMERA_LABEL, label)
             }
         }
-        val pending = PendingIntent.getActivity(this, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val notification = NotificationCompat.Builder(this, CHANNEL_ALERTS)
+        return PendingIntent.getActivity(this, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun buildAlertNotification(label: String, pending: PendingIntent, snapshot: Bitmap?): Notification {
+        val builder = NotificationCompat.Builder(this, CHANNEL_ALERTS)
             .setContentTitle(getString(R.string.person_detected_title, label))
             .setContentText(getString(R.string.tap_to_view))
             .setSmallIcon(R.drawable.ic_notification)
@@ -195,7 +236,19 @@ class AlertReceiverService : Service() {
             .setFullScreenIntent(pending, true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .build()
+        if (snapshot != null) {
+            val camera = Person.Builder().setName(label).build()
+            builder
+                .setLargeIcon(snapshot)
+                .setStyle(
+                    NotificationCompat.MessagingStyle(camera)
+                        .addMessage(getString(R.string.person_detected_title, label), System.currentTimeMillis(), camera),
+                )
+        }
+        return builder.build()
+    }
+
+    private fun notifyAlert(notification: Notification) {
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID_ALERT, notification)
     }
 

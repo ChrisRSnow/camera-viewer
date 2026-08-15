@@ -248,6 +248,16 @@ documented behavior is to show a heads-up banner rather than a true
 full-screen takeover when the screen is already unlocked — the full
 takeover is reserved for locked/off/always-on-display states.
 
+**Android Auto**: a person-detected alert gets enriched with the snapshot
+photo a moment after it first fires, shown as a photo message on a
+connected car's screen (framed as a `MessagingStyle` notification — see
+[ARCHITECTURE.md §9](ARCHITECTURE.md#9-full-screen-alert-notifications)
+for why, and Android Auto's own driver-distraction rules for why a live
+video view was ruled out entirely). **Built to the documented spec but
+not verified on a real Android Auto head unit or emulator** — if it
+doesn't show up on your car's screen, that's worth reporting as a real
+gap to investigate, not necessarily user error.
+
 **Doze mode / App Standby**: if a phone sits completely stationary and
 unused for a long time, stock Android's Doze mode can further restrict
 background network access regardless of the app-specific settings above.

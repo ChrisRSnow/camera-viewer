@@ -459,6 +459,37 @@ would make the feed visible on a locked screen without authentication,
 which is a real privacy trade a future change should only make
 deliberately, not by accident.
 
+**Android Auto**: the alert notification is enriched with the just-taken
+snapshot photo, specifically framed as a `NotificationCompat.MessagingStyle`
+notification (the camera "sending a message" with a photo) rather than
+just adding `setLargeIcon()` to the plain notification. This isn't
+stylistic — Android Auto's own quality guidelines (image usage rule IU-1)
+only permit a static content image on notifications in the Messaging
+category; a plain alert notification with an image wouldn't be compliant.
+Investigated directly against Google's Car App Library quality
+guidelines before building this — a full Android Auto **video** viewer
+was explicitly ruled out (live camera video isn't an approved category
+for any app type, IoT included), but a still photo on a car-compatible
+messaging notification is.
+
+Two-step, not fetched inline: `fireAlertNotification` fires the existing
+fast (unchanged) notification immediately, then asynchronously fetches
+the sender's snapshot (already saved before the alert was sent — see
+`CameraDetectionService`'s detection callback ordering) and *updates*
+the same notification with it once fetched. Updating an existing
+notification doesn't re-trigger `setFullScreenIntent` (that only fires
+for a genuinely new alerting notification) — the phone-side alert still
+feels instant, and the photo/car enrichment arrives a moment later
+without a second intrusive wake-up. Requires
+`res/xml/automotive_app_desc.xml` + a manifest `<meta-data>` declaring
+this app's notifications as car-compatible.
+
+**Not verified against a real Android Auto head unit or emulator** —
+built to the documented API/guideline spec (`androidx.core`'s
+`NotificationCompat.MessagingStyle` + `setLargeIcon()`, current per
+Google's own 2026 messaging-notification docs), but unconfirmed on real
+hardware.
+
 ## 10. Development & deployment
 
 No CI/release pipeline — `./gradlew assembleDebug`, then deploy by hand.
@@ -490,7 +521,7 @@ build will fail without it.
 | `SecureCredentialStore.kt` | EncryptedSharedPreferences wrapper — Tailscale token, camera login, label, alert targets, device role, snapshot retention count |
 | `CameraDetectionService.kt` | Sender role: watches local camera, publishes preview frames, runs `PersonDetector`, fires alerts + saves snapshots |
 | `CameraMonitorService.kt` | Viewer role: streams video from a sender's relay (§4), explicit-target or discovery-based |
-| `AlertReceiverService.kt` | Viewer role: listens on :8790 for pushed alerts, fires full-screen notification |
+| `AlertReceiverService.kt` | Viewer role: listens on :8790 for pushed alerts, fires full-screen notification, enriches with a snapshot photo via `MessagingStyle` for Android Auto (§9) |
 | `AlertClient.kt` | Sender-side: POSTs `{label, ip, ts}` to configured viewer targets |
 | `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1); sets `rotate=` for camera rotation; sets `resolution=` for cellular-aware quality |
 | `CameraOrientationMonitor.kt` | Sender-side: accelerometer-based physical orientation tracking, debounced to 90° bucket changes, for auto-rotation (§1) |

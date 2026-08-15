@@ -12,6 +12,22 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.10.0]
+
+- Added Android Auto integration: person-detected alerts now enrich with
+  the snapshot photo a moment after firing, shown as a photo message on a
+  connected car's screen. Verified directly against Google's Car App
+  Library quality guidelines first — a live video viewer isn't an
+  approved category for any app type including IoT, but a static photo
+  *is* permitted specifically on Messaging-category notifications (image
+  usage rule IU-1), so the alert is framed as a `MessagingStyle`
+  notification rather than just adding a large icon to the plain one.
+  Fetches the snapshot asynchronously and updates the existing
+  notification afterward, so the phone-side full-screen alert still
+  fires instantly — updating doesn't re-trigger it a second time. Built
+  to the documented API/guideline spec; not verified on a real Android
+  Auto head unit or emulator.
+
 ## [1.9.0]
 
 - Added audio streaming from the sender's microphone, off by default and
