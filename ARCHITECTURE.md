@@ -47,6 +47,23 @@ aren't documented anywhere in the camera app itself:
   local camera app from one phone — see §4's note on why the sender's own
   live-preview reuses `CameraDetectionService`'s existing connection rather
   than opening a second one.
+- **Camera control via query parameters, applied live to any request** —
+  no dedicated control endpoint; parameters like `camera=`, `zoom=`,
+  `exposure=`, `torch=`, and `focus_distance=` (`-1` = auto, `0..1` =
+  manual) can be tacked onto any request (e.g. `/info.json?focus_distance=-1`)
+  and take effect on the running camera session immediately, without
+  needing to reconnect the stream.
+- **Autofocus can get stuck with no automatic correction** — observed on
+  real hardware: the lens simply stopped refocusing on scene changes, and
+  only cleared when the phone was physically moved (jostling the lens
+  mechanically). `CameraDetectionService` works around this by calling
+  `CameraControlClient.nudgeRefocus()` every `REFOCUS_INTERVAL_MS` (5
+  minutes): it sets `focus_distance` to a manual value away from wherever
+  it's stuck, briefly settles, then sets it back to `-1` (auto) — forcing
+  the same kind of lens movement physically jostling the phone caused,
+  without needing a hand on it. Fire-and-forget on the service's own
+  coroutine scope, so a slow or failed nudge request never stalls frame
+  processing or detection.
 - **Suspends when backgrounded** unless *all four* of the following are
   set: battery-optimization exemption, OnePlus "Autostart" permission,
   OnePlus "Foreground activity" allowed (a separate toggle from Autostart),
@@ -91,19 +108,27 @@ SENDER phone                                    VIEWER phone
 │ SnapshotServerService ◀────────┼──┘              └──────────────┬──────────────┘
 │  :8791/snapshots (list)       │  GET :8791                      │
 │  :8791/snapshots/<file>       │◀─────────────────────────────── SnapshotsActivity
-└─────────────────────────────┘  (on demand, viewer-initiated)   │
+│                                │  (on demand, viewer-initiated)  │
+│ VideoRelayServerService        │                                 │
+│  :8792/video/mjpeg            │  GET :8792/video/mjpeg          │
+│  (LiveFrameBus fan-out) ◀──────┼───────────────────────────────▶│
+└─────────────────────────────┘  plain HTTP, full framerate       │
         ▲                                          └──────────────┬──────────────┘
         │ MJPEG stream, :4444                                     │
-        │ HTTPS, same Basic Auth                                  ▼
-        └──────────────────────────────────────── CameraMonitorService
-                                                     - explicit IP (from alert)
-                                                       → connects directly, no
-                                                       discovery
-                                                     - no explicit IP (manual
-                                                       "Start monitoring") →
-                                                       TailscaleDiscovery +
-                                                       CameraProber cert check,
-                                                       first match wins
+        │ HTTPS, Basic Auth                                       ▼
+        │ (this app's ONLY connection to it — see §4)      CameraMonitorService
+   "Android IP Camera" app                                  - explicit IP (from alert)
+        (from §1)                                             → connects directly, no
+                                                                discovery
+                                                              - no explicit IP (manual
+                                                                "Start monitoring") →
+                                                                TailscaleDiscovery +
+                                                                CameraProber cert check,
+                                                                first match wins
+                                                              - streams from the
+                                                                sender's :8792 relay,
+                                                                never from :4444
+                                                                directly
 ```
 
 A single phone can run both `CameraDetectionService` (watching its own
@@ -149,7 +174,7 @@ reference to it in old notes or a stale build, it no longer exists; person
 detection (camera-side, real ML) is the only detection mechanism in this
 app.
 
-## 4. The sender's own live preview
+## 4. The sender's own live preview, and relaying video to remote viewers
 
 `CameraDetectionService` publishes the frames it decodes for detection
 (`latestFrame`/`status`, `StateFlow`s mirroring `CameraMonitorService`'s
@@ -166,9 +191,35 @@ having `MainActivity` open a second, independent connection (e.g. via
 note on the camera app's single-viewer encoder degradation — a second
 connection from the same phone would risk exactly that problem, even
 though both connections would technically originate from the same device.
-The preview updates at roughly the same ~1fps cadence as inference (frames
-are decoded once per second either way), not full video framerate — fine
-for "is this pointed where I think it is," not meant to be a smooth feed.
+The local preview updates at roughly the same ~1fps cadence as inference
+(frames are decoded once per second either way), not full video framerate —
+fine for "is this pointed where I think it is," not meant to be a smooth
+feed.
+
+**Remote viewers go through the same single connection too, via
+`VideoRelayServerService` and `LiveFrameBus`.** Every frame
+`CameraDetectionService` reads from the local camera app — not just the
+throttled ~1fps inference frames — is published to `LiveFrameBus`, an
+in-process `SharedFlow`. `VideoRelayServerService` is a second raw-socket
+server on the sender (`:8792/video/mjpeg`, plain HTTP, same
+Tailscale-membership-is-the-access-control trust model as
+`AlertReceiverService`/`SnapshotServerService`) that fans those frames out
+to any number of connected viewers via `SharedFlow`'s normal multi-collector
+support. `CameraMonitorService` (on a viewer phone) connects to this relay,
+not to the camera app's `:4444` directly.
+
+This mattered in practice, not just in theory: earlier versions had
+`CameraMonitorService` connect straight to the sender's camera app over
+Tailscale. That is a second simultaneous connection to the same
+single-viewer-encoder camera app discussed in §1 — just made remotely
+instead of locally — and it reproduced the same degradation on real
+hardware: after a few minutes, both the sender's local preview and the
+viewer's remote view would freeze on the last frame, stuck in a
+"Reconnecting in 30s…" loop that never recovered on its own (the camera
+app's encoder itself needed restarting, not just the app's sockets). Routing
+viewers through the relay means the camera app only ever has the one
+connection `CameraDetectionService` holds, regardless of how many viewer
+phones are watching.
 
 ## 5. Multi-camera routing
 
@@ -352,11 +403,14 @@ build will fail without it.
 | `SettingsActivity.kt` | All credentials + role-conditional section visibility + manual scan/detection/listening controls + snapshot retention count |
 | `SecureCredentialStore.kt` | EncryptedSharedPreferences wrapper — Tailscale token, camera login, label, alert targets, device role, snapshot retention count |
 | `CameraDetectionService.kt` | Sender role: watches local camera, publishes preview frames, runs `PersonDetector`, fires alerts + saves snapshots |
-| `CameraMonitorService.kt` | Viewer role: streams remote camera video, explicit-target or discovery-based |
+| `CameraMonitorService.kt` | Viewer role: streams video from a sender's relay (§4), explicit-target or discovery-based |
 | `AlertReceiverService.kt` | Viewer role: listens on :8790 for pushed alerts, fires full-screen notification |
 | `AlertClient.kt` | Sender-side: POSTs `{label, ip, ts}` to configured viewer targets |
+| `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1) |
 | `PersonDetector.kt` | TFLite EfficientDet-Lite0 wrapper, debounced person detection |
-| `MjpegClient.kt` | Raw-socket HTTPS MJPEG stream consumer (both roles use it, different targets) |
+| `MjpegClient.kt` | Raw-socket MJPEG stream consumer — TLS `:4444` for the camera app, or plain `:8792` for a sender's relay (§4) |
+| `VideoRelayServerService.kt` | Sender-side: re-serves `LiveFrameBus` frames to remote viewers over `:8792`, so they never connect to the camera app directly (§4) |
+| `LiveFrameBus.kt` | In-process `SharedFlow` handing frames from `CameraDetectionService`'s one camera-app connection to `VideoRelayServerService`'s many viewer connections |
 | `CameraProber.kt` | TLS-connects to `:4444`, checks cert subject for the camera app's identity |
 | `ViewerProber.kt` | TCP-connects to `:8790`, checks whether anything's listening (weaker signal than CameraProber) |
 | `ViewerScan.kt` | Shared tailnet-scan-for-viewers logic, used by both the manual button and auto-scan-on-startup |

@@ -183,9 +183,9 @@ it's the actual mechanism that matters here.
 
 ## 7. Networking gotchas
 
-- **Ports 8790 (alerts) and 8791 (snapshots)** need to actually be
-  reachable between phones over Tailscale — this normally just works with
-  Tailscale's default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
+- **Ports 8790 (alerts), 8791 (snapshots), and 8792 (video relay)** need to
+  actually be reachable between phones over Tailscale — this normally just
+  works with Tailscale's default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
   on your tailnet, make sure they don't block phone-to-phone traffic on
   these ports.
 - **This app deliberately allows plain (non-HTTPS) HTTP traffic for

@@ -180,6 +180,15 @@ class CameraMonitorService : Service() {
                     username = username,
                     password = password,
                     isActive = { loopContext.isActive },
+                    // Connects to the sender's own VideoRelayServerService,
+                    // not the third-party camera app directly (which is
+                    // TLS-only on port 4444). A remote viewer opening its
+                    // own direct connection to the camera app used to be
+                    // exactly the second-simultaneous-connection problem
+                    // that degrades its encoder after a few minutes — see
+                    // CameraDetectionService's doc comment.
+                    useTls = false,
+                    port = VideoRelayServerService.PORT,
                 ) { frameBytes ->
                     reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS // reset backoff on a successful frame
                     val bitmap = BitmapFactory.decodeByteArray(frameBytes, 0, frameBytes.size)

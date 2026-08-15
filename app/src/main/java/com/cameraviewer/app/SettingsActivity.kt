@@ -90,6 +90,7 @@ class SettingsActivity : AppCompatActivity() {
         if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER && credentialStore.isCameraRoleConfigured) {
             ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
             ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+            ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
         }
     }
 

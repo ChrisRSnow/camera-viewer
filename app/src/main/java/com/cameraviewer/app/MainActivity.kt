@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity() {
                 if (credentialStore.isCameraRoleConfigured) {
                     ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
                     ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+                    ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
                 }
                 val token = credentialStore.tailscaleApiToken
                 if (!token.isNullOrBlank()) {

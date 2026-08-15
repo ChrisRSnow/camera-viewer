@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
 import java.net.InetSocketAddress
+import java.net.Socket
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -34,11 +35,13 @@ class MjpegClient {
         username: String,
         password: String,
         isActive: () -> Boolean,
+        useTls: Boolean = true,
+        port: Int = CAMERA_PORT,
         onFrame: suspend (ByteArray) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        var socket: SSLSocket? = null
+        var socket: Socket? = null
         try {
-            socket = openSocket(ip)
+            socket = if (useTls) openTlsSocket(ip, port) else openPlainSocket(ip, port)
             val input = sendRequest(socket, ip, "/video/mjpeg", username, password)
 
             var buf = ByteArray(0)
@@ -67,16 +70,30 @@ class MjpegClient {
         }
     }
 
-    private fun openSocket(ip: String): SSLSocket {
+    private fun openTlsSocket(ip: String, port: Int): SSLSocket {
         val socket = trustAllContext.socketFactory.createSocket() as SSLSocket
-        socket.connect(InetSocketAddress(ip, CAMERA_PORT), CONNECT_TIMEOUT_MS)
+        socket.connect(InetSocketAddress(ip, port), CONNECT_TIMEOUT_MS)
         socket.soTimeout = READ_TIMEOUT_MS
         socket.startHandshake()
         return socket
     }
 
+    /**
+     * Plain (non-TLS) socket, used only for this app's own video relay
+     * (VideoRelayServerService) — not the third-party camera app, which
+     * always requires TLS. Same trust model as AlertClient/SnapshotFetcher:
+     * plain HTTP between our own app instances, Tailscale membership is the
+     * access control (see AlertClient's doc comment).
+     */
+    private fun openPlainSocket(ip: String, port: Int): Socket {
+        val socket = Socket()
+        socket.connect(InetSocketAddress(ip, port), CONNECT_TIMEOUT_MS)
+        socket.soTimeout = READ_TIMEOUT_MS
+        return socket
+    }
+
     /** Sends the GET request and returns the input stream positioned right after the response headers. */
-    private fun sendRequest(socket: SSLSocket, host: String, path: String, username: String, password: String): InputStream {
+    private fun sendRequest(socket: Socket, host: String, path: String, username: String, password: String): InputStream {
         val basic = Base64.encodeToString("$username:$password".toByteArray(), Base64.NO_WRAP)
         val request = "GET $path HTTP/1.1\r\n" +
             "Host: $host\r\n" +

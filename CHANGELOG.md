@@ -2,6 +2,32 @@
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versions follow semantic versioning (MAJOR.MINOR.PATCH).
 
+## [1.2.0]
+
+- Fixed stuck autofocus on the sender's camera: on real hardware the lens
+  would stop refocusing on scene changes with no automatic correction,
+  only clearing when the phone was physically moved — a real problem for
+  an unattended camera, and the direct cause of missed person-detection
+  alerts (a blurry frame rarely clears the detection confidence
+  threshold). Added `CameraControlClient`, which periodically (every 5
+  minutes) nudges the camera app's documented `focus_distance` control
+  parameter — briefly forcing a manual value away from wherever the lens
+  is stuck, then back to auto — recreating the same lens movement that
+  physically jostling the phone caused.
+
+## [1.1.0]
+
+- Fixed a real bug: on a two-phone setup, the stream would freeze solid after
+  a few minutes — both the sender's own local preview and the viewer's remote
+  view stuck on the last frame, status showing "Reconnecting in 30s…"
+  indefinitely. Root cause: a remote viewer connecting straight to the
+  sender's Android IP Camera app over Tailscale was a *second* simultaneous
+  connection to that app (on top of the sender's own detection loop) — its
+  single-viewer encoder degrades under exactly that. Fixed by adding
+  VideoRelayServerService, so the camera app only ever sees one connection
+  (the sender's own) no matter how many viewer phones are watching; viewers
+  now connect to that relay instead of the camera app directly.
+
 ## [1.0.0] — first public baseline
 
 - Two device roles (Sender/Viewer), chosen once via a first-run prompt, driving role-appropriate Settings UI and auto-start behavior

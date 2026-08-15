@@ -46,6 +46,8 @@
     <string name="person_detected_title">Person detected — %1$s</string>
     <string name="channel_snapshot_server_name">Snapshot server status</string>
     <string name="serving_snapshots">Serving snapshots to viewers</string>
+    <string name="channel_video_relay_name">Video relay status</string>
+    <string name="relaying_video">Relaying video to viewers</string>
     <string name="settings_snapshot_retention_label">Snapshots to keep</string>
     <string name="settings_snapshot_retention_hint">20</string>
 

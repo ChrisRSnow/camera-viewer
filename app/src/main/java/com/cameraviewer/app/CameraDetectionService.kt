@@ -55,10 +55,14 @@ import kotlinx.coroutines.launch
  * reusing the exact same decoded frames already being pulled for detection,
  * rather than opening a second independent connection to the local camera
  * app. That matters: the camera app's single-viewer encoder degrades under
- * a second simultaneous connection (see IPCameraDash/ARCHITECTURE.md §3),
- * so a naive second CameraMonitorService-style connection to 127.0.0.1
- * would risk the same degradation this project has already worked around
- * once, even though it'd be two connections from the same phone.
+ * a second simultaneous connection (see ARCHITECTURE.md §1). This service
+ * holds the ONLY connection to the local camera app; every frame it reads
+ * is also published to LiveFrameBus, which VideoRelayServerService fans out
+ * to any number of remote viewers. Earlier versions had CameraMonitorService
+ * (on a viewer phone) connect directly to the sender's camera app over
+ * Tailscale — a second simultaneous connection in exactly the same sense,
+ * just made remotely instead of locally, and it caused the same encoder
+ * degradation after a few minutes on real hardware.
  */
 class CameraDetectionService : Service() {
 
@@ -132,6 +136,7 @@ class CameraDetectionService : Service() {
         val loopContext = currentCoroutineContext()
         var reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
         var framesSinceInference = 0
+        var lastRefocusMs = 0L
 
         try {
             while (loopContext.isActive) {
@@ -146,6 +151,32 @@ class CameraDetectionService : Service() {
                     ) { frameBytes ->
                         reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
                         updateStatus("Watching — $label")
+
+                        // Full framerate to the relay regardless of the
+                        // inference throttle below — remote viewers watch
+                        // live video, they don't need it capped to detection
+                        // rate. This is the one and only connection to the
+                        // local camera app; VideoRelayServerService fans
+                        // these same frames out to any number of viewers so
+                        // none of them need their own separate connection to
+                        // it (see LiveFrameBus for why that mattered).
+                        LiveFrameBus.publish(frameBytes)
+
+                        // Periodically nudge the camera app to re-run
+                        // autofocus — discovered empirically that this
+                        // camera's autofocus can get stuck (only cleared by
+                        // physically moving the phone) with no automatic
+                        // correction otherwise, which is a real problem for
+                        // an unattended security camera. Fire-and-forget on
+                        // this service's own scope so a slow/failed nudge
+                        // request never stalls frame processing.
+                        val now = System.currentTimeMillis()
+                        if (now - lastRefocusMs >= REFOCUS_INTERVAL_MS) {
+                            lastRefocusMs = now
+                            scope.launch {
+                                CameraControlClient.nudgeRefocus(LOOPBACK_IP, username, password)
+                            }
+                        }
 
                         // Run inference roughly once a second rather than on
                         // every MJPEG frame (~12fps) — plenty for an alert
@@ -231,6 +262,7 @@ class CameraDetectionService : Service() {
         private const val NOTIF_ID = 3
         private const val NOTIF_ID_MOTION = 4
         private const val INFERENCE_EVERY_N_FRAMES = 12 // ~1 inference/sec at the camera's ~12fps
+        private const val REFOCUS_INTERVAL_MS = 5 * 60 * 1_000L // every 5 minutes
         private const val INITIAL_RECONNECT_DELAY_MS = 1_000L
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
     }
