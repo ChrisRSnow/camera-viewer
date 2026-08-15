@@ -19,3 +19,7 @@ app/src/main/assets/person_detector.tflite
 # Signing
 *.jks
 *.keystore
+
+# Desktop viewer
+desktop-viewer/.venv/
+desktop-viewer/__pycache__/

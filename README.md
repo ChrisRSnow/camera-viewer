@@ -13,6 +13,9 @@ alerts directly to other phones over the tailnet.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — how it's built, design
   decisions, and known limitations.
 - **[CHANGELOG.md](CHANGELOG.md)** — version history.
+- **[desktop-viewer/](desktop-viewer/)** — a viewer-role client for
+  Windows/Linux desktops, same alert/video/snapshot protocol as the phone
+  app's viewer role. No sender/host mode — see its own README.
 
 ## Prerequisites
 

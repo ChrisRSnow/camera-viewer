@@ -2,6 +2,16 @@
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versions follow semantic versioning (MAJOR.MINOR.PATCH).
 
+## Desktop viewer client (Windows/Linux)
+
+Added `desktop-viewer/`, a Python + PySide6 viewer-role client speaking the
+same protocol as the Android app's viewer role: Tailscale discovery, the
+video relay (`:8792`), the alert listener (`:8790`, with desktop
+notifications and auto-switch to the alerting camera), and snapshot
+browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
+for setup — versioned independently of the Android app's numbers above
+since it's a separate client, not part of the APK.
+
 ## [1.3.2]
 
 - Hid the "Start monitoring" button on the main screen for sender-role
