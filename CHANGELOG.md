@@ -12,6 +12,14 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.5.0]
+
+- Added a last-snapshot thumbnail (viewer role): a small corner overlay on
+  the video feed showing the most recent snapshot from whichever camera
+  is currently known, tap to view full size. Refreshes when the screen
+  opens and immediately after a successful manual snapshot. Self-hiding
+  when there's no known camera or no snapshots yet.
+
 ## [1.4.1]
 
 - Shrunk the control buttons themselves (height/padding), not just their

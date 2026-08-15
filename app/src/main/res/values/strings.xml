@@ -71,6 +71,7 @@
     <string name="manual_snapshot_saved">Snapshot saved</string>
     <string name="manual_snapshot_no_frame">Camera hasn\'t sent a frame yet — try again in a moment</string>
     <string name="manual_snapshot_failed">Snapshot failed — camera unreachable?</string>
+    <string name="last_snapshot_description">Last snapshot — tap to view full size</string>
     <string name="snapshots_title">Snapshots</string>
     <string name="snapshots_loading">Loading…</string>
     <string name="snapshots_empty">No snapshots yet</string>

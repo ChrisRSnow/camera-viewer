@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -27,6 +28,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var credentialStore: SecureCredentialStore
+
+    private var lastSnapshotBitmap: Bitmap? = null
 
     // Client-side digital zoom/pan on imageFeed — purely a local display
     // transform on the already-received frame (View.scaleX/scaleY/
@@ -170,6 +173,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnManualSnapshot.setOnClickListener { triggerManualSnapshot() }
+        binding.imgLastSnapshot.setOnClickListener { showLastSnapshotFullSize() }
         setupZoomGestures()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -291,6 +295,7 @@ class MainActivity : AppCompatActivity() {
         // Sender's local feed — same "binding doesn't start it" reasoning;
         // applyRoleStartupBehavior is what actually starts detection.
         bindService(Intent(this, CameraDetectionService::class.java), cameraDetectionConnection, Context.BIND_AUTO_CREATE)
+        refreshLastSnapshotThumbnail()
     }
 
     override fun onStop() {
@@ -395,13 +400,58 @@ class MainActivity : AppCompatActivity() {
             return
         }
         lifecycleScope.launch {
-            val messageRes = when (SnapshotFetcher.triggerManualCapture(ip)) {
+            val result = SnapshotFetcher.triggerManualCapture(ip)
+            val messageRes = when (result) {
                 ManualCaptureResult.SAVED -> R.string.manual_snapshot_saved
                 ManualCaptureResult.NO_FRAME_AVAILABLE -> R.string.manual_snapshot_no_frame
                 ManualCaptureResult.UNREACHABLE -> R.string.manual_snapshot_failed
             }
             Toast.makeText(this@MainActivity, messageRes, Toast.LENGTH_SHORT).show()
+            if (result == ManualCaptureResult.SAVED) refreshLastSnapshotThumbnail()
         }
+    }
+
+    /**
+     * Small corner thumbnail of the most recent snapshot from whichever
+     * camera is currently known (credentialStore.lastKnownCameraIp) — tap
+     * to view full size, same dialog style as SnapshotsActivity's row tap.
+     * Self-gating rather than explicitly role-hidden: a sender-only device
+     * has no "currently watched camera" in this sense, so lastKnownCameraIp
+     * is naturally unset there and this just silently stays hidden.
+     * Best-effort — any failure (no camera yet, unreachable, no snapshots)
+     * just leaves the thumbnail hidden rather than showing an error.
+     */
+    private fun refreshLastSnapshotThumbnail() {
+        val ip = credentialStore.lastKnownCameraIp
+        if (ip.isNullOrBlank()) {
+            binding.imgLastSnapshot.visibility = View.GONE
+            return
+        }
+        lifecycleScope.launch {
+            val bitmap = runCatching {
+                val newest = SnapshotFetcher.list(ip).firstOrNull() ?: return@runCatching null
+                SnapshotFetcher.fetchImage(ip, newest.filename)
+            }.getOrNull()
+            if (bitmap != null) {
+                lastSnapshotBitmap = bitmap
+                binding.imgLastSnapshot.setImageBitmap(bitmap)
+                binding.imgLastSnapshot.visibility = View.VISIBLE
+            } else {
+                binding.imgLastSnapshot.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun showLastSnapshotFullSize() {
+        val bitmap = lastSnapshotBitmap ?: return
+        val imageView = android.widget.ImageView(this).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+        }
+        AlertDialog.Builder(this)
+            .setView(imageView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     /**
