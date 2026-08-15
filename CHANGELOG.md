@@ -12,6 +12,19 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.11.0]
+
+- **Removed the experimental audio streaming feature (added in 1.9.0).**
+  Confirmed on real hardware: enabling it destabilized the camera app —
+  the sender got stuck reporting "Idle," and turning the audio setting
+  back off did **not** self-recover it, only force-stopping and
+  reopening the *camera app itself* did. This was exactly the risk
+  flagged when the feature was built (untested whether audio shares
+  encoder state with video inside the camera app) — now confirmed real,
+  so removed entirely rather than left toggled off by default. Anyone
+  who enabled it should force-stop/reopen the Android IP Camera app after
+  updating if their sender is currently stuck.
+
 ## [1.10.0]
 
 - Added Android Auto integration: person-detected alerts now enrich with

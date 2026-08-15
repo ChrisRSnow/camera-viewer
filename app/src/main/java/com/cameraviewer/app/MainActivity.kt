@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var credentialStore: SecureCredentialStore
 
     private var lastSnapshotBitmap: Bitmap? = null
-    private var audioPlayer: android.media.MediaPlayer? = null
 
     // Client-side digital zoom/pan on imageFeed — purely a local display
     // transform on the already-received frame (View.scaleX/scaleY/
@@ -187,7 +186,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnManualSnapshot.setOnClickListener { triggerManualSnapshot() }
         binding.imgLastSnapshot.setOnClickListener { showLastSnapshotFullSize() }
-        binding.btnToggleAudio.setOnClickListener { toggleAudio() }
         setupZoomGestures()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -254,7 +252,6 @@ class MainActivity : AppCompatActivity() {
         val isSender = credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER
         binding.btnStartStop.visibility = if (isSender) View.GONE else View.VISIBLE
         binding.btnManualSnapshot.visibility = if (isSender) View.GONE else View.VISIBLE
-        binding.btnToggleAudio.visibility = if (isSender) View.GONE else View.VISIBLE
         when (credentialStore.deviceRole) {
             SecureCredentialStore.ROLE_VIEWER ->
                 ContextCompat.startForegroundService(this, Intent(this, AlertReceiverService::class.java))
@@ -292,10 +289,6 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
         ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
         ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
-        if (credentialStore.audioEnabled) {
-            ContextCompat.startForegroundService(this, Intent(this, AudioCaptureService::class.java))
-            ContextCompat.startForegroundService(this, Intent(this, AudioRelayServerService::class.java))
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -352,11 +345,6 @@ class MainActivity : AppCompatActivity() {
             unbindService(cameraDetectionConnection)
             cameraDetectionBound = false
         }
-        // Audio playback is tied to this screen being visible, not a
-        // background service like video/alerts — leaving it running while
-        // backgrounded would just leak the MediaPlayer with nothing
-        // showing it's still active.
-        stopAudio()
         super.onStop()
     }
 
@@ -504,61 +492,6 @@ class MainActivity : AppCompatActivity() {
             .setView(imageView)
             .setPositiveButton(android.R.string.ok, null)
             .show()
-    }
-
-    /**
-     * "Listen to audio" button — plays the currently-watched camera's mic
-     * audio via MediaPlayer pointed straight at the sender's
-     * AudioRelayServerService URL. MediaPlayer supports HTTP streaming
-     * sources natively (including open-ended/live ones), so this needs no
-     * manual buffering/AudioTrack handling — it parses the WAV container
-     * and plays progressively as bytes arrive, same as it would for a
-     * radio-station-style continuous stream. Requires the sender's
-     * experimental "Enable audio" Settings toggle to actually be on;
-     * otherwise the connection is simply refused (AudioRelayServerService
-     * isn't running) and playback fails to prepare.
-     */
-    private fun toggleAudio() {
-        if (audioPlayer != null) {
-            stopAudio()
-            return
-        }
-        val ip = credentialStore.lastKnownCameraIp
-        if (ip.isNullOrBlank()) {
-            Toast.makeText(this, R.string.audio_no_camera, Toast.LENGTH_SHORT).show()
-            return
-        }
-        binding.btnToggleAudio.text = getString(R.string.stop_audio)
-        audioPlayer = android.media.MediaPlayer().apply {
-            setAudioAttributes(
-                android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
-            setOnPreparedListener { it.start() }
-            setOnErrorListener { _, _, _ ->
-                Toast.makeText(this@MainActivity, R.string.audio_start_failed, Toast.LENGTH_SHORT).show()
-                stopAudio()
-                true
-            }
-            try {
-                setDataSource("http://$ip:${AudioRelayServerService.PORT}/audio")
-                prepareAsync()
-            } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, R.string.audio_start_failed, Toast.LENGTH_SHORT).show()
-                stopAudio()
-            }
-        }
-    }
-
-    private fun stopAudio() {
-        audioPlayer?.apply {
-            runCatching { stop() }
-            release()
-        }
-        audioPlayer = null
-        binding.btnToggleAudio.text = getString(R.string.listen_to_audio)
     }
 
     /**

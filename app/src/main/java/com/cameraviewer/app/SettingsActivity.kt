@@ -97,7 +97,6 @@ class SettingsActivity : AppCompatActivity() {
         updateRotationButtonText()
         binding.checkAutoRotation.isChecked = credentialStore.cameraAutoRotationEnabled
         binding.checkInvertRotation.isChecked = credentialStore.cameraAutoRotationInverted
-        binding.checkAudioEnabled.isChecked = credentialStore.audioEnabled
         binding.checkCellularQuality.isChecked = credentialStore.cellularQualityReductionEnabled
 
         applyRoleVisibility()
@@ -197,7 +196,6 @@ class SettingsActivity : AppCompatActivity() {
         credentialStore.cameraRotationDegrees = cameraRotationDegrees
         credentialStore.cameraAutoRotationEnabled = binding.checkAutoRotation.isChecked
         credentialStore.cameraAutoRotationInverted = binding.checkInvertRotation.isChecked
-        credentialStore.audioEnabled = binding.checkAudioEnabled.isChecked
         credentialStore.cellularQualityReductionEnabled = binding.checkCellularQuality.isChecked
         // "As of right now, this rotation value is correct for the phone's
         // current physical orientation" — the calibration point
@@ -239,13 +237,6 @@ class SettingsActivity : AppCompatActivity() {
             ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
             ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
             ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
-            if (credentialStore.audioEnabled) {
-                ContextCompat.startForegroundService(this, Intent(this, AudioCaptureService::class.java))
-                ContextCompat.startForegroundService(this, Intent(this, AudioRelayServerService::class.java))
-            } else {
-                startService(Intent(this, AudioCaptureService::class.java).apply { action = AudioCaptureService.ACTION_STOP })
-                startService(Intent(this, AudioRelayServerService::class.java).apply { action = AudioRelayServerService.ACTION_STOP })
-            }
         }
     }
 
@@ -294,10 +285,6 @@ class SettingsActivity : AppCompatActivity() {
         ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
         ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
         ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
-        if (credentialStore.audioEnabled) {
-            ContextCompat.startForegroundService(this, Intent(this, AudioCaptureService::class.java))
-            ContextCompat.startForegroundService(this, Intent(this, AudioRelayServerService::class.java))
-        }
     }
 
     private fun stopDetection() {

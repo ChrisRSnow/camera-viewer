@@ -115,12 +115,7 @@ Then, in Settings, fill in:
   retention count (default 20), auto-refocus interval in minutes (default
   5 — see the note on stuck autofocus below), camera rotation (see
   [§6](#6-camera-rotation-sender-phones-only) if the sender phone isn't
-  mounted the way it was held during setup), "Enable audio from
-  microphone" — off by default, **experimental**: this opens a second
-  connection to the camera app on top of the video one, and it isn't
-  known whether that risks the same encoder instability multiple video
-  connections cause (§1 in ARCHITECTURE.md) — try it, and turn it back
-  off if video becomes unreliable after enabling it
+  mounted the way it was held during setup)
 - **Viewer-only**: "Reduce camera quality on cellular" — off by default.
   Turning it on asks the sender to drop resolution while *this* phone is
   on cellular data, restoring it when back on Wi-Fi. Worth understanding
@@ -267,10 +262,9 @@ it's the actual mechanism that matters here.
 
 ## 8. Networking gotchas
 
-- **Ports 8790 (alerts), 8791 (snapshots), 8792 (video relay), and 8793
-  (audio relay, only if enabled)** need to actually be reachable between
-  phones over Tailscale — this normally just works with Tailscale's
-  default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
+- **Ports 8790 (alerts), 8791 (snapshots), and 8792 (video relay)** need to
+  actually be reachable between phones over Tailscale — this normally just
+  works with Tailscale's default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
   on your tailnet, make sure they don't block phone-to-phone traffic on
   these ports.
 - **This app deliberately allows plain (non-HTTPS) HTTP traffic for
@@ -308,13 +302,24 @@ already fixed — see the changelog entry for that version.
 always §7 — check every battery/autostart/background setting again,
 especially after an OS update, which can silently reset some of them.
 
-**Main screen stuck on "Idle", never reconnects, even after waiting**: a
-real bug, fixed in 1.7.1 — if you're on an older build, update. Before
-that fix, returning to the app after `CameraDetectionService` had been
-killed by the OS in the background could leave it recreated-but-never-
-started, stuck reporting its default state indefinitely. Force-closing
-and reopening the whole app worked around it on older builds; 1.7.1+
-self-heals this automatically.
+**Main screen stuck on "Idle", never reconnects, even after waiting**:
+two different known causes, worth checking in order —
+1. A real bug, fixed in 1.7.1 (update if you're on an older build):
+   returning to the app after `CameraDetectionService` had been killed by
+   the OS in the background could leave it recreated-but-never-started,
+   stuck reporting its default state indefinitely. 1.7.1+ self-heals this
+   automatically on returning to the main screen.
+2. **The camera app itself is wedged**, not this app — if Idle persists
+   even after a fresh Settings Save (which explicitly restarts the
+   connection) and even after force-closing/reopening Camera Viewer, try
+   force-stopping and reopening the **Android IP Camera** app specifically
+   (see the "Video is laggy" entry above — same root cause, its
+   single-viewer encoder getting stuck). Confirmed on real hardware: this
+   was the actual cause of a real stuck-Idle report after the (since
+   reverted) experimental audio feature had been briefly enabled — the
+   camera app got wedged, and toggling Camera Viewer's own audio setting
+   back off did **not** self-recover it, only restarting the camera app
+   did.
 
 **"View Snapshots" or the last-snapshot thumbnail says/shows "No camera
 known yet"**: on a viewer, this needs at least one successful connection

@@ -92,18 +92,6 @@
             android:text="@string/manual_snapshot" />
 
         <Button
-            android:id="@+id/btnToggleAudio"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="6dp"
-            android:textSize="10.5sp"
-            android:minHeight="0dp"
-            android:paddingVertical="2dp"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="@string/listen_to_audio" />
-
-        <Button
             android:id="@+id/btnViewSnapshots"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

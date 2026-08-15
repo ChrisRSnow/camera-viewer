@@ -103,32 +103,21 @@ aren't documented anywhere in the camera app itself:
   for every other viewer (and the sender's own preview) watching at the
   same time — off by default specifically because of this, not because
   it's unreliable.
-- **Audio streaming** (`SecureCredentialStore.audioEnabled`, sender-role
-  Settings toggle, off by default — **experimental**) — the camera app's
-  `/audio` endpoint (16-bit PCM mono WAV, 44.1kHz, chunked
-  transfer-encoding, verified against the app's own docs) is a second
-  simultaneous connection to the camera app on top of
-  `CameraDetectionService`'s video one. Follows the exact same
-  capture→bus→relay pattern as video: `AudioCaptureService` holds the one
-  connection and publishes raw bytes to `LiveAudioBus`
-  (`SharedFlow<ByteArray>`, no replay — a new listener should start
-  hearing from when it joins, not replay a stale chunk the way a new
-  video viewer benefits from an instant first frame), and
-  `AudioRelayServerService` (`:8793/audio`) fans those bytes out to any
-  number of viewers, so no viewer ever opens its own second connection
-  for audio either. **Why off by default and explicitly called out as
-  experimental**: whether audio capture shares any encoder state with
-  video *inside* the camera app isn't known — the "single-viewer video
-  encoder degrades under a second connection" issue this project already
-  fought hard to work around (§4) was specifically about the video
-  encoder, and it's untested on real hardware whether adding this second
-  (audio) connection reintroduces a version of that problem. Disabling
-  this setting is the first thing to try if video becomes unreliable
-  after enabling audio. Viewer side: `MainActivity`'s "Listen to audio"
-  button uses `MediaPlayer.setDataSource()` pointed directly at the
-  relay's HTTP URL — `MediaPlayer` streams and plays an open-ended HTTP
-  audio source natively, so no manual buffering/`AudioTrack` handling was
-  needed.
+- **Audio streaming — tried and reverted.** A second connection to the
+  camera app's `/audio` endpoint (same capture→bus→relay pattern as
+  video) was built and shipped off-by-default as experimental, with the
+  real risk called out explicitly at the time: whether audio capture
+  shares any encoder state with video *inside* the camera app was
+  unknown, untested on real hardware. On real-hardware testing, enabling
+  it did in fact destabilize the camera app — the sender got stuck
+  reporting "Idle" and, notably, disabling the audio setting again
+  did **not** self-recover it; the camera app itself needed a manual
+  force-stop/reopen to clear (matching the already-documented
+  single-viewer encoder fragility pattern, §1's "Video is laggy" note).
+  Removed entirely rather than left disabled-by-default, given a
+  confirmed real destabilization risk isn't something to leave dormant
+  in the codebase. If audio is revisited, this real-world result is
+  worth designing around from the start rather than re-discovering.
 - **Autofocus can get stuck with no automatic correction** — observed on
   real hardware: the lens simply stopped refocusing on scene changes, and
   only cleared when the phone was physically moved (jostling the lens
@@ -516,7 +505,7 @@ build will fail without it.
 
 | File | Role |
 |---|---|
-| `MainActivity.kt` | Main screen: live feed display (from either service, §4), Start/Stop monitoring, Manual snapshot, Listen to audio (`MediaPlayer` against `AudioRelayServerService`), View Snapshots, pinch-to-zoom/pan on the feed (client-side display transform, `ScaleGestureDetector`+`GestureDetector`, double-tap to reset), status + listening pills, first-run role picker, keeps screen on while foregrounded |
+| `MainActivity.kt` | Main screen: live feed display (from either service, §4), Start/Stop monitoring, Manual snapshot, View Snapshots, pinch-to-zoom/pan on the feed (client-side display transform, `ScaleGestureDetector`+`GestureDetector`, double-tap to reset), status + listening pills, first-run role picker, keeps screen on while foregrounded |
 | `SettingsActivity.kt` | All credentials + role-conditional section visibility + manual scan/detection/listening controls + snapshot retention count |
 | `SecureCredentialStore.kt` | EncryptedSharedPreferences wrapper — Tailscale token, camera login, label, alert targets, device role, snapshot retention count |
 | `CameraDetectionService.kt` | Sender role: watches local camera, publishes preview frames, runs `PersonDetector`, fires alerts + saves snapshots |
@@ -531,9 +520,6 @@ build will fail without it.
 | `MjpegClient.kt` | Raw-socket MJPEG stream consumer — TLS `:4444` for the camera app, or plain `:8792` for a sender's relay (§4) |
 | `VideoRelayServerService.kt` | Sender-side: re-serves `LiveFrameBus` frames to remote viewers over `:8792`, so they never connect to the camera app directly (§4); also `POST /quality` for cellular-aware quality (§1) |
 | `LiveFrameBus.kt` | In-process `SharedFlow` handing frames from `CameraDetectionService`'s one camera-app connection to `VideoRelayServerService`'s many viewer connections |
-| `AudioCaptureService.kt` | Sender-side, experimental (§1): the one connection to the camera app's `/audio` endpoint, publishing to `LiveAudioBus` |
-| `AudioRelayServerService.kt` | Sender-side: re-serves `LiveAudioBus` bytes to remote viewers over `:8793/audio` |
-| `LiveAudioBus.kt` | In-process `SharedFlow` handing audio bytes from `AudioCaptureService` to `AudioRelayServerService` |
 | `CameraProber.kt` | TLS-connects to `:4444`, checks cert subject for the camera app's identity |
 | `ViewerProber.kt` | TCP-connects to `:8790`, checks whether anything's listening (weaker signal than CameraProber) |
 | `ViewerScan.kt` | Shared tailnet-scan-for-viewers logic, used by both the manual button and auto-scan-on-startup |
