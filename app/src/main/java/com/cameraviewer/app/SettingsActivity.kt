@@ -50,6 +50,22 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private var alertReceiverService: AlertReceiverService? = null
+    private var alertReceiverBound = false
+
+    private val alertReceiverConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            alertReceiverService = (binder as AlertReceiverService.LocalBinder).getService()
+            alertReceiverBound = true
+            observeAlertReceiverService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            alertReceiverService = null
+            alertReceiverBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
@@ -72,19 +88,25 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnToggleDetection.setOnClickListener {
             if (cameraDetectionService?.isRunning?.value == true) stopDetection() else startDetection()
         }
-        binding.btnStartListening.setOnClickListener { startListening() }
-        binding.btnStopListening.setOnClickListener { stopListening() }
+        binding.btnToggleListening.setOnClickListener {
+            if (alertReceiverService?.isListening?.value == true) stopListening() else startListening()
+        }
     }
 
     override fun onStart() {
         super.onStart()
         bindService(Intent(this, CameraDetectionService::class.java), cameraDetectionConnection, Context.BIND_AUTO_CREATE)
+        bindService(Intent(this, AlertReceiverService::class.java), alertReceiverConnection, Context.BIND_AUTO_CREATE)
     }
 
     override fun onStop() {
         if (cameraDetectionBound) {
             unbindService(cameraDetectionConnection)
             cameraDetectionBound = false
+        }
+        if (alertReceiverBound) {
+            unbindService(alertReceiverConnection)
+            alertReceiverBound = false
         }
         super.onStop()
     }
@@ -97,6 +119,20 @@ class SettingsActivity : AppCompatActivity() {
                 svc.isRunning.collect { running ->
                     binding.btnToggleDetection.text = getString(
                         if (running) R.string.stop_person_detection else R.string.start_person_detection,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Same reasoning as observeCameraDetectionService — keeps the label truthful even if listening was started elsewhere (viewer role auto-starts it on launch). */
+    private fun observeAlertReceiverService() {
+        val svc = alertReceiverService ?: return
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                svc.isListening.collect { listening ->
+                    binding.btnToggleListening.text = getString(
+                        if (listening) R.string.stop_listening else R.string.start_listening,
                     )
                 }
             }

@@ -187,29 +187,13 @@
                 android:textStyle="bold"
                 android:layout_marginTop="20dp" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/btnToggleListening"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:layout_marginTop="12dp"
-                android:layout_marginBottom="24dp">
-
-                <Button
-                    android:id="@+id/btnStartListening"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/start_listening" />
-
-                <Button
-                    android:id="@+id/btnStopListening"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/stop_listening" />
-            </LinearLayout>
+                android:layout_marginBottom="24dp"
+                android:text="@string/start_listening" />
 
         </LinearLayout>
 

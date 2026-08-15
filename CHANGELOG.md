@@ -2,6 +2,13 @@
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versions follow semantic versioning (MAJOR.MINOR.PATCH).
 
+## [1.3.1]
+
+- Settings' separate "Start listening for alerts"/"Stop listening for
+  alerts" buttons are now a single toggle button reflecting the alert
+  listener's actual running state — same treatment as 1.3.0's detection
+  toggle.
+
 ## [1.3.0]
 
 - Autofocus nudge interval is now user-configurable in Settings (minutes),
