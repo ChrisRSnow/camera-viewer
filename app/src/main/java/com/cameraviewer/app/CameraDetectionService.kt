@@ -143,23 +143,30 @@ class CameraDetectionService : Service() {
         var framesSinceInference = 0
         var lastRefocusMs = 0L
 
+        // Rotation is corrected here, at the one connection to the actual
+        // camera app, so every downstream consumer (this device's own
+        // preview, the video relay, and therefore every remote viewer)
+        // sees already-correct frames without needing its own rotation
+        // logic. A one-shot control request, not part of the stream
+        // connection itself — see CameraControlClient's doc comment for
+        // why (the docs don't demonstrate rotate= on /video/mjpeg, only
+        // the root path/control endpoints, and it's documented as
+        // "persisted per-camera" so a one-time call suffices).
+        val rotation = credentialStore.cameraRotationDegrees
+        if (rotation != 0) {
+            runCatching { CameraControlClient.setRotation(LOOPBACK_IP, username, password, rotation) }
+        }
+
         try {
             while (loopContext.isActive) {
                 detector.reset()
                 updateStatus("Connecting to local camera…")
                 try {
-                    // Rotation is corrected here, at the one connection to
-                    // the actual camera app, so every downstream consumer
-                    // (this device's own preview, the video relay, and
-                    // therefore every remote viewer) sees already-correct
-                    // frames without needing its own rotation logic.
-                    val rotation = credentialStore.cameraRotationDegrees
                     client.streamFrames(
                         ip = LOOPBACK_IP,
                         username = username,
                         password = password,
                         isActive = { loopContext.isActive },
-                        query = if (rotation != 0) "?rotate=$rotation" else "",
                     ) { frameBytes ->
                         reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
                         updateStatus("Watching — $label")

@@ -12,6 +12,18 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.6.2]
+
+- Fixed a real regression from 1.6.0: appending `rotate=<degrees>`
+  directly to the `/video/mjpeg` connection URL broke the camera
+  connection outright once a non-zero rotation was saved — the camera
+  app's docs only demonstrate this parameter on the root `/` path or
+  dedicated control endpoints, never the streaming endpoint itself.
+  Rotation is now set via a separate one-shot control request (matching
+  the app's documented `/?torch=on&zoom=2.0` example) before the stream
+  connects, decoupled with `runCatching` so even a failed rotation
+  request can no longer take down the actual video connection.
+
 ## [1.6.1]
 
 - Fixed Settings not actually applying camera rotation (or credential)

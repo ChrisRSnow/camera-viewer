@@ -47,27 +47,33 @@ aren't documented anywhere in the camera app itself:
   local camera app from one phone — see §4's note on why the sender's own
   live-preview reuses `CameraDetectionService`'s existing connection rather
   than opening a second one.
-- **Camera control via query parameters, applied live to any request** —
-  no dedicated control endpoint; parameters like `camera=`, `zoom=`,
-  `exposure=`, `torch=`, `rotate=<degrees>`, and `focus_distance=` (`-1` =
-  auto, `0..1` = manual) can be tacked onto any request (e.g.
-  `/info.json?focus_distance=-1`) and take effect on the running camera
-  session immediately, without needing to reconnect the stream.
-  `rotate=` is applied to the actual `/video/mjpeg` connection itself
-  (`MjpegClient`'s `query` parameter), not a throwaway request like
-  `focus_distance`'s nudge — see the "Camera rotation" Settings field
-  below.
+- **Camera control via query parameters** — no dedicated control endpoint;
+  parameters like `camera=`, `zoom=`, `exposure=`, `torch=`,
+  `rotate=<degrees>`, and `focus_distance=` (`-1` = auto, `0..1` = manual)
+  take effect on the running camera session immediately, without needing
+  to reconnect the stream. The app's own docs only demonstrate these on
+  the root `/` path or dedicated "control endpoints" — **not** on
+  `/video/mjpeg` itself. An earlier version of this app appended
+  `rotate=` directly to the `/video/mjpeg` connection URL and it broke the
+  stream outright (total connection failure, not just a visual rotation
+  bug) — `CameraControlClient` now only ever hits `/` or `/info.json`
+  (the latter specifically for `focus_distance`, proven working by
+  on-device testing; kept as-is rather than "cleaned up" to match
+  `rotate=`'s root-path usage and risking a regression in something that
+  already works) for one-shot control requests, never the streaming
+  endpoint.
 - **Camera rotation** (`SecureCredentialStore.cameraRotationDegrees`,
   Settings' cycling "0°/90°/180°/270°" button, sender section) — corrects
   for how the sender phone is physically mounted (e.g. landscape-mounted
-  needs 90 or 270) via the camera app's `rotate=` parameter, applied once
-  at `CameraDetectionService`'s one connection to the camera app. Because
-  that's upstream of everything else, correcting it there means the
-  sender's own local preview, the video relay, and therefore every remote
-  viewer, all see already-correct frames — no rotation logic needed
-  anywhere else in this app. Discrete values only (not arbitrary degrees):
-  the camera app's rotation is a rotation of the encoder output, not a
-  free angle.
+  needs 90 or 270). Documented as "persisted per-camera," so
+  `CameraDetectionService` sets it via one `CameraControlClient.setRotation()`
+  call at the start of its detection loop (before the stream connects),
+  not on every reconnect. Because that's upstream of everything else,
+  correcting it there means the sender's own local preview, the video
+  relay, and therefore every remote viewer, all see already-correct
+  frames — no rotation logic needed anywhere else in this app. Discrete
+  values only (not arbitrary degrees): the camera app's rotation is a
+  rotation of the encoder output, not a free angle.
 - **Autofocus can get stuck with no automatic correction** — observed on
   real hardware: the lens simply stopped refocusing on scene changes, and
   only cleared when the phone was physically moved (jostling the lens

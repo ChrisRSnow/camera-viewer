@@ -13,17 +13,16 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
 /**
- * Camera-side: nudges the local Android IP Camera app to re-run autofocus
- * via its documented `focus_distance` query parameter (`-1` = auto,
- * `0..1` = manual), applied live to any request without needing to
- * reconnect the MJPEG stream. Discovered empirically that a stuck-focus
- * lens only cleared when the phone was physically moved — this recreates
- * the same effect (the lens is forced to actually move) without needing
- * a hand on the phone: briefly force a manual distance away from wherever
- * it's currently stuck, then hand control back to auto so it re-evaluates
- * from a different starting point. Just setting `-1` again on its own
- * wasn't assumed sufficient, since "already in auto mode" could plausibly
- * be a no-op for a driver that isn't actively re-scanning.
+ * Camera-side: one-shot control requests against the local Android IP
+ * Camera app's documented query-parameter controls (`focus_distance`,
+ * `rotate`, ...), separate from the actual MJPEG stream connection
+ * (MjpegClient). Deliberately NOT appended to the `/video/mjpeg` request
+ * itself — the app's docs only demonstrate these on the root `/` path or
+ * "control endpoints," not the streaming endpoint, and appending an
+ * unexpected query string to `/video/mjpeg` is a plausible way to break
+ * that request outright rather than just being ignored. Fired against `/`
+ * instead, matching the documented example
+ * (`/?torch=on&zoom=2.0`).
  *
  * One-shot HTTPS request (not a streaming connection), so this reuses
  * HttpsURLConnection + a trust-all SSLContext rather than MjpegClient's
@@ -36,17 +35,47 @@ object CameraControlClient {
     private const val READ_TIMEOUT_MS = 4_000
     private const val NUDGE_SETTLE_DELAY_MS = 500L
 
+    /**
+     * Nudges the camera to re-run autofocus. Discovered empirically that a
+     * stuck-focus lens only cleared when the phone was physically moved —
+     * this recreates the same effect (the lens is forced to actually
+     * move) without needing a hand on the phone: briefly force a manual
+     * distance away from wherever it's currently stuck, then hand control
+     * back to auto so it re-evaluates from a different starting point.
+     * Just setting `-1` again on its own wasn't assumed sufficient, since
+     * "already in auto mode" could plausibly be a no-op for a driver
+     * that isn't actively re-scanning.
+     */
     suspend fun nudgeRefocus(ip: String, username: String, password: String) {
-        setFocusDistance(ip, username, password, "0.5")
+        // Kept on /info.json specifically (not the root path other
+        // controls below use) - this exact endpoint was already confirmed
+        // working via real on-device testing, so it's left alone rather
+        // than "cleaned up" to match rotate=/mirror='s root-path usage
+        // purely for consistency and risking a regression in a feature
+        // that already works.
+        setParam(ip, username, password, "focus_distance", "0.5", path = "/info.json")
         delay(NUDGE_SETTLE_DELAY_MS)
-        setFocusDistance(ip, username, password, "-1")
+        setParam(ip, username, password, "focus_distance", "-1", path = "/info.json")
     }
 
-    private suspend fun setFocusDistance(ip: String, username: String, password: String, value: String) =
+    /**
+     * Sets camera rotation (documented as "persisted per-camera," so this
+     * only needs calling once per value change, not on every reconnect —
+     * called once at the start of CameraDetectionService's detection
+     * loop, before the actual stream connection). Root path, matching the
+     * app's own documented example (`/?torch=on&zoom=2.0`) — unlike
+     * focus_distance above, this one hasn't been proven against
+     * /info.json, so it goes where the docs actually demonstrate it.
+     */
+    suspend fun setRotation(ip: String, username: String, password: String, degrees: Int) {
+        setParam(ip, username, password, "rotate", degrees.toString(), path = "/")
+    }
+
+    private suspend fun setParam(ip: String, username: String, password: String, key: String, value: String, path: String) =
         withContext(Dispatchers.IO) {
             var conn: HttpsURLConnection? = null
             try {
-                val url = URL("https://$ip:${MjpegClient.CAMERA_PORT}/info.json?focus_distance=$value")
+                val url = URL("https://$ip:${MjpegClient.CAMERA_PORT}$path?$key=$value")
                 conn = (url.openConnection() as HttpsURLConnection).apply {
                     sslSocketFactory = trustAllContext.socketFactory
                     hostnameVerifier = HostnameVerifier { _, _ -> true }
@@ -56,11 +85,12 @@ object CameraControlClient {
                     setRequestProperty("Authorization", "Basic $basic")
                 }
                 val code = conn.responseCode
-                if (code != 200) Log.w(TAG, "focus_distance=$value returned HTTP $code")
+                if (code != 200) Log.w(TAG, "$key=$value returned HTTP $code")
             } catch (e: Exception) {
-                // Best-effort — a missed refocus nudge just means it'll be
-                // hit on the next cycle, not something to disrupt detection.
-                Log.w(TAG, "refocus request (focus_distance=$value) failed: ${e.message}")
+                // Best-effort — a missed control request just means it'll
+                // be retried next cycle (refocus) or on the next connection
+                // attempt (rotation), not something to disrupt detection.
+                Log.w(TAG, "control request ($key=$value) failed: ${e.message}")
             } finally {
                 conn?.disconnect()
             }
