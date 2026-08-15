@@ -69,6 +69,11 @@ class SecureCredentialStore(context: Context) {
         get() = prefs.getInt(KEY_SNAPSHOT_RETENTION, DEFAULT_SNAPSHOT_RETENTION)
         set(value) = prefs.edit().putInt(KEY_SNAPSHOT_RETENTION, value).apply()
 
+    /** Minutes between CameraControlClient autofocus nudges. See CameraDetectionService. */
+    var refocusIntervalMinutes: Int
+        get() = prefs.getInt(KEY_REFOCUS_INTERVAL, DEFAULT_REFOCUS_INTERVAL_MINUTES)
+        set(value) = prefs.edit().putInt(KEY_REFOCUS_INTERVAL, value).apply()
+
     fun alertTargetList(): List<String> =
         alertTargets.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -93,9 +98,11 @@ class SecureCredentialStore(context: Context) {
         private const val KEY_ALERT_TARGETS = "alert_targets"
         private const val KEY_DEVICE_ROLE = "device_role"
         private const val KEY_SNAPSHOT_RETENTION = "snapshot_retention_count"
+        private const val KEY_REFOCUS_INTERVAL = "refocus_interval_minutes"
 
         const val ROLE_SENDER = "sender"
         const val ROLE_VIEWER = "viewer"
         const val DEFAULT_SNAPSHOT_RETENTION = 20
+        const val DEFAULT_REFOCUS_INTERVAL_MINUTES = 5
     }
 }

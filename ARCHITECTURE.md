@@ -57,8 +57,8 @@ aren't documented anywhere in the camera app itself:
   real hardware: the lens simply stopped refocusing on scene changes, and
   only cleared when the phone was physically moved (jostling the lens
   mechanically). `CameraDetectionService` works around this by calling
-  `CameraControlClient.nudgeRefocus()` every `REFOCUS_INTERVAL_MS` (5
-  minutes): it sets `focus_distance` to a manual value away from wherever
+  `CameraControlClient.nudgeRefocus()` every `refocusIntervalMinutes`
+  (user-configurable in Settings, default 5): it sets `focus_distance` to a manual value away from wherever
   it's stuck, briefly settles, then sets it back to `-1` (auto) — forcing
   the same kind of lens movement physically jostling the phone caused,
   without needing a hand on it. Fire-and-forget on the service's own

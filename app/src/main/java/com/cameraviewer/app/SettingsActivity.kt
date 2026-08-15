@@ -1,12 +1,18 @@
 package com.cameraviewer.app
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.IBinder
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.cameraviewer.app.databinding.ActivitySettingsBinding
 import kotlinx.coroutines.launch
 
@@ -28,6 +34,22 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var credentialStore: SecureCredentialStore
 
+    private var cameraDetectionService: CameraDetectionService? = null
+    private var cameraDetectionBound = false
+
+    private val cameraDetectionConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            cameraDetectionService = (binder as CameraDetectionService.LocalBinder).getService()
+            cameraDetectionBound = true
+            observeCameraDetectionService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            cameraDetectionService = null
+            cameraDetectionBound = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
@@ -41,15 +63,44 @@ class SettingsActivity : AppCompatActivity() {
         binding.editCameraLabel.setText(credentialStore.cameraLabel.orEmpty())
         binding.editAlertTargets.setText(credentialStore.alertTargets.orEmpty())
         binding.editSnapshotRetention.setText(credentialStore.snapshotRetentionCount.toString())
+        binding.editRefocusInterval.setText(credentialStore.refocusIntervalMinutes.toString())
 
         applyRoleVisibility()
 
         binding.btnSave.setOnClickListener { save() }
         binding.btnScanTailnet.setOnClickListener { scanTailnetForViewers() }
-        binding.btnStartDetection.setOnClickListener { startDetection() }
-        binding.btnStopDetection.setOnClickListener { stopDetection() }
+        binding.btnToggleDetection.setOnClickListener {
+            if (cameraDetectionService?.isRunning?.value == true) stopDetection() else startDetection()
+        }
         binding.btnStartListening.setOnClickListener { startListening() }
         binding.btnStopListening.setOnClickListener { stopListening() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        bindService(Intent(this, CameraDetectionService::class.java), cameraDetectionConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    override fun onStop() {
+        if (cameraDetectionBound) {
+            unbindService(cameraDetectionConnection)
+            cameraDetectionBound = false
+        }
+        super.onStop()
+    }
+
+    /** Keeps btnToggleDetection's label truthful to the service's actual running state, not just whichever button was last tapped here — it can also be running because it auto-started elsewhere (see MainActivity.applyRoleStartupBehavior). */
+    private fun observeCameraDetectionService() {
+        val svc = cameraDetectionService ?: return
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                svc.isRunning.collect { running ->
+                    binding.btnToggleDetection.text = getString(
+                        if (running) R.string.stop_person_detection else R.string.start_person_detection,
+                    )
+                }
+            }
+        }
     }
 
     /** Role unset (shouldn't normally happen post-first-run) shows both sections rather than hiding everything. */
@@ -68,6 +119,8 @@ class SettingsActivity : AppCompatActivity() {
         credentialStore.alertTargets = binding.editAlertTargets.text.toString().trim()
         credentialStore.snapshotRetentionCount = binding.editSnapshotRetention.text.toString().trim().toIntOrNull()
             ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_SNAPSHOT_RETENTION
+        credentialStore.refocusIntervalMinutes = binding.editRefocusInterval.text.toString().trim().toIntOrNull()
+            ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_REFOCUS_INTERVAL_MINUTES
         // Credentials changed — a cached IP found under old/different
         // credentials shouldn't be trusted until discovery re-confirms it.
         credentialStore.lastKnownCameraIp = null
@@ -138,6 +191,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
         ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
+        ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))
     }
 
     private fun stopDetection() {

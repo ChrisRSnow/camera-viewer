@@ -146,28 +146,25 @@
                 android:inputType="number"
                 android:hint="@string/settings_snapshot_retention_hint" />
 
-            <LinearLayout
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_refocus_interval_label"
+                android:layout_marginTop="16dp" />
+
+            <EditText
+                android:id="@+id/editRefocusInterval"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:hint="@string/settings_refocus_interval_hint" />
+
+            <Button
+                android:id="@+id/btnToggleDetection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="12dp">
-
-                <Button
-                    android:id="@+id/btnStartDetection"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="@string/start_person_detection" />
-
-                <Button
-                    android:id="@+id/btnStopDetection"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/stop_person_detection" />
-            </LinearLayout>
+                android:layout_marginTop="12dp"
+                android:text="@string/start_person_detection" />
 
         </LinearLayout>
 

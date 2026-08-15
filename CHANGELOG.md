@@ -2,6 +2,18 @@
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versions follow semantic versioning (MAJOR.MINOR.PATCH).
 
+## [1.3.0]
+
+- Autofocus nudge interval is now user-configurable in Settings (minutes),
+  instead of a fixed 5-minute constant.
+- Settings' separate "Start person detection"/"Stop person detection"
+  buttons are now a single toggle button reflecting the service's actual
+  running state (matches the pattern already used for the viewer's Start/Stop
+  monitoring button on the main screen).
+- Fixed a gap: the manual "Start person detection" button wasn't starting
+  VideoRelayServerService, so a sender started this way had no video for
+  remote viewers even though detection/alerts worked.
+
 ## [1.2.0]
 
 - Fixed stuck autofocus on the sender's camera: on real hardware the lens

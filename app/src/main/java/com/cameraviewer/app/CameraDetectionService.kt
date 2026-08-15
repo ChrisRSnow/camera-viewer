@@ -75,6 +75,8 @@ class CameraDetectionService : Service() {
     val latestFrame: StateFlow<Bitmap?> = _latestFrame.asStateFlow()
     private val _status = MutableStateFlow("Idle")
     val status: StateFlow<String> = _status.asStateFlow()
+    private val _isRunning = MutableStateFlow(false)
+    val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
     inner class LocalBinder : Binder() {
         fun getService(): CameraDetectionService = this@CameraDetectionService
@@ -92,6 +94,7 @@ class CameraDetectionService : Service() {
         if (intent?.action == ACTION_STOP) {
             job?.cancel()
             job = null
+            _isRunning.value = false
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -103,6 +106,7 @@ class CameraDetectionService : Service() {
                 buildNotification("Starting person detection…"),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
+            _isRunning.value = true
             job = scope.launch { runDetectionLoop() }
         }
         return START_STICKY
@@ -110,6 +114,7 @@ class CameraDetectionService : Service() {
 
     override fun onDestroy() {
         job?.cancel()
+        _isRunning.value = false
         scope.cancel()
         super.onDestroy()
     }
@@ -171,7 +176,8 @@ class CameraDetectionService : Service() {
                         // this service's own scope so a slow/failed nudge
                         // request never stalls frame processing.
                         val now = System.currentTimeMillis()
-                        if (now - lastRefocusMs >= REFOCUS_INTERVAL_MS) {
+                        val refocusIntervalMs = credentialStore.refocusIntervalMinutes.coerceAtLeast(1) * 60_000L
+                        if (now - lastRefocusMs >= refocusIntervalMs) {
                             lastRefocusMs = now
                             scope.launch {
                                 CameraControlClient.nudgeRefocus(LOOPBACK_IP, username, password)
@@ -262,7 +268,6 @@ class CameraDetectionService : Service() {
         private const val NOTIF_ID = 3
         private const val NOTIF_ID_MOTION = 4
         private const val INFERENCE_EVERY_N_FRAMES = 12 // ~1 inference/sec at the camera's ~12fps
-        private const val REFOCUS_INTERVAL_MS = 5 * 60 * 1_000L // every 5 minutes
         private const val INITIAL_RECONNECT_DELAY_MS = 1_000L
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
     }
