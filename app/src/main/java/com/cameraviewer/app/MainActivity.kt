@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.view.View
 import android.view.WindowManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -165,6 +166,12 @@ class MainActivity : AppCompatActivity() {
      * self-heals if that app gets closed and reopened later.
      */
     private fun applyRoleStartupBehavior() {
+        // "Start monitoring" connects to a REMOTE camera — meaningless on a
+        // sender-only device, which already shows its own local feed
+        // automatically via CameraDetectionService. Tapping it there would
+        // just try (and fail) to discover some other camera on the tailnet.
+        binding.btnStartStop.visibility =
+            if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER) View.GONE else View.VISIBLE
         when (credentialStore.deviceRole) {
             SecureCredentialStore.ROLE_VIEWER ->
                 ContextCompat.startForegroundService(this, Intent(this, AlertReceiverService::class.java))

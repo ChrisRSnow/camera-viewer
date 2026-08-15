@@ -2,6 +2,13 @@
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/), versions follow semantic versioning (MAJOR.MINOR.PATCH).
 
+## [1.3.2]
+
+- Hid the "Start monitoring" button on the main screen for sender-role
+  devices — it controls watching a *remote* camera, which doesn't apply to
+  a device that's already showing its own local feed. Was previously shown
+  unconditionally regardless of role.
+
 ## [1.3.1]
 
 - Settings' separate "Start listening for alerts"/"Stop listening for
