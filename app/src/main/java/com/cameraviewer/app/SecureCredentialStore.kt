@@ -74,6 +74,19 @@ class SecureCredentialStore(context: Context) {
         get() = prefs.getInt(KEY_REFOCUS_INTERVAL, DEFAULT_REFOCUS_INTERVAL_MINUTES)
         set(value) = prefs.edit().putInt(KEY_REFOCUS_INTERVAL, value).apply()
 
+    /**
+     * How the camera app's raw capture needs rotating to appear correctly
+     * on a normally-held viewer phone - depends entirely on how this
+     * sender phone is physically mounted (e.g. landscape-mounted needs
+     * 90/270). Always one of {0, 90, 180, 270}; enforced by
+     * SettingsActivity's cycling button rather than free entry, since the
+     * camera app's rotate= parameter is a discrete rotation, not an
+     * arbitrary angle.
+     */
+    var cameraRotationDegrees: Int
+        get() = prefs.getInt(KEY_CAMERA_ROTATION, 0)
+        set(value) = prefs.edit().putInt(KEY_CAMERA_ROTATION, value).apply()
+
     fun alertTargetList(): List<String> =
         alertTargets.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -99,6 +112,7 @@ class SecureCredentialStore(context: Context) {
         private const val KEY_DEVICE_ROLE = "device_role"
         private const val KEY_SNAPSHOT_RETENTION = "snapshot_retention_count"
         private const val KEY_REFOCUS_INTERVAL = "refocus_interval_minutes"
+        private const val KEY_CAMERA_ROTATION = "camera_rotation_degrees"
 
         const val ROLE_SENDER = "sender"
         const val ROLE_VIEWER = "viewer"

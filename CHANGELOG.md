@@ -12,6 +12,16 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.6.0]
+
+- Added a "Camera rotation" setting (sender section) — corrects for a
+  landscape-mounted (or otherwise rotated) sender phone showing the wrong
+  orientation on viewers. A tap-to-cycle 0°/90°/180°/270° button, applied
+  via the camera app's own `rotate=` control parameter at the one
+  connection to it, so the sender's local preview, the video relay, and
+  every remote viewer all see already-corrected frames — no rotation
+  logic needed anywhere downstream.
+
 ## [1.5.2]
 
 - Fixed "View Snapshots" and the last-snapshot thumbnail always showing

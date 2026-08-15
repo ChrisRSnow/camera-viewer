@@ -52,6 +52,11 @@
     <string name="settings_snapshot_retention_hint">20</string>
     <string name="settings_refocus_interval_label">Auto-refocus every (minutes)</string>
     <string name="settings_refocus_interval_hint">5</string>
+    <string name="settings_camera_rotation_label">Camera rotation (how this phone is physically mounted) — tap to change</string>
+    <string name="camera_rotation_value_0">0°</string>
+    <string name="camera_rotation_value_90">90°</string>
+    <string name="camera_rotation_value_180">180°</string>
+    <string name="camera_rotation_value_270">270°</string>
 
     <!-- Alert listening (viewer role) -->
     <string name="settings_alert_listening_heading">Listen for alerts</string>

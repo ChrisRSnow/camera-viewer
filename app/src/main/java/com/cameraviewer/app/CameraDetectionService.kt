@@ -148,11 +148,18 @@ class CameraDetectionService : Service() {
                 detector.reset()
                 updateStatus("Connecting to local camera…")
                 try {
+                    // Rotation is corrected here, at the one connection to
+                    // the actual camera app, so every downstream consumer
+                    // (this device's own preview, the video relay, and
+                    // therefore every remote viewer) sees already-correct
+                    // frames without needing its own rotation logic.
+                    val rotation = credentialStore.cameraRotationDegrees
                     client.streamFrames(
                         ip = LOOPBACK_IP,
                         username = username,
                         password = password,
                         isActive = { loopContext.isActive },
+                        query = if (rotation != 0) "?rotate=$rotation" else "",
                     ) { frameBytes ->
                         reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
                         updateStatus("Watching — $label")

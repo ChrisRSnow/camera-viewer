@@ -34,6 +34,11 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var credentialStore: SecureCredentialStore
 
+    // Held in memory and only written to credentialStore on Save, same as
+    // every other field on this screen (editRefocusInterval etc.) — not
+    // its own persisted-immediately toggle, despite the click-to-cycle UI.
+    private var cameraRotationDegrees = 0
+
     private var cameraDetectionService: CameraDetectionService? = null
     private var cameraDetectionBound = false
 
@@ -80,11 +85,17 @@ class SettingsActivity : AppCompatActivity() {
         binding.editAlertTargets.setText(credentialStore.alertTargets.orEmpty())
         binding.editSnapshotRetention.setText(credentialStore.snapshotRetentionCount.toString())
         binding.editRefocusInterval.setText(credentialStore.refocusIntervalMinutes.toString())
+        cameraRotationDegrees = credentialStore.cameraRotationDegrees
+        updateRotationButtonText()
 
         applyRoleVisibility()
 
         binding.btnSave.setOnClickListener { save() }
         binding.btnScanTailnet.setOnClickListener { scanTailnetForViewers() }
+        binding.btnCameraRotation.setOnClickListener {
+            cameraRotationDegrees = (cameraRotationDegrees + 90) % 360
+            updateRotationButtonText()
+        }
         binding.btnToggleDetection.setOnClickListener {
             if (cameraDetectionService?.isRunning?.value == true) stopDetection() else startDetection()
         }
@@ -139,6 +150,17 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateRotationButtonText() {
+        binding.btnCameraRotation.text = getString(
+            when (cameraRotationDegrees) {
+                90 -> R.string.camera_rotation_value_90
+                180 -> R.string.camera_rotation_value_180
+                270 -> R.string.camera_rotation_value_270
+                else -> R.string.camera_rotation_value_0
+            },
+        )
+    }
+
     /** Role unset (shouldn't normally happen post-first-run) shows both sections rather than hiding everything. */
     private fun applyRoleVisibility() {
         when (credentialStore.deviceRole) {
@@ -157,6 +179,7 @@ class SettingsActivity : AppCompatActivity() {
             ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_SNAPSHOT_RETENTION
         credentialStore.refocusIntervalMinutes = binding.editRefocusInterval.text.toString().trim().toIntOrNull()
             ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_REFOCUS_INTERVAL_MINUTES
+        credentialStore.cameraRotationDegrees = cameraRotationDegrees
         // Credentials changed — a cached IP found under old/different
         // credentials shouldn't be trusted until discovery re-confirms it.
         credentialStore.lastKnownCameraIp = null

@@ -37,12 +37,18 @@ class MjpegClient {
         isActive: () -> Boolean,
         useTls: Boolean = true,
         port: Int = CAMERA_PORT,
+        // Camera-app-only control parameters (e.g. "?rotate=90") - see
+        // CameraDetectionService for why rotation is corrected here, at the
+        // one connection to the actual camera app, rather than downstream.
+        // Never meaningful against VideoRelayServerService, which has no
+        // such controls and always ignores query strings on its one route.
+        query: String = "",
         onFrame: suspend (ByteArray) -> Unit,
     ) = withContext(Dispatchers.IO) {
         var socket: Socket? = null
         try {
             socket = if (useTls) openTlsSocket(ip, port) else openPlainSocket(ip, port)
-            val input = sendRequest(socket, ip, "/video/mjpeg", username, password)
+            val input = sendRequest(socket, ip, "/video/mjpeg$query", username, password)
 
             var buf = ByteArray(0)
             val readChunk = ByteArray(65536)

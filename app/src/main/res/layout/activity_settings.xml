@@ -159,6 +159,18 @@
                 android:inputType="number"
                 android:hint="@string/settings_refocus_interval_hint" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_camera_rotation_label"
+                android:layout_marginTop="16dp" />
+
+            <Button
+                android:id="@+id/btnCameraRotation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/camera_rotation_value_0" />
+
             <Button
                 android:id="@+id/btnToggleDetection"
                 android:layout_width="match_parent"
