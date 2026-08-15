@@ -12,6 +12,19 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.8.0]
+
+- Added cellular-aware video quality (viewer role, "Reduce camera quality
+  on cellular" Settings toggle, off by default): when a viewer's network
+  switches to cellular, it asks the sender to drop resolution, restoring
+  it when back on Wi-Fi. Watches the viewer's active network transport
+  via `ConnectivityManager` (`NetworkQualityMonitor`), and a new
+  `VideoRelayServerService` route (`POST /quality`) applies it via the
+  camera app's `resolution=` control parameter. Off by default since
+  resolution is a property of the shared camera app, not per-viewer —
+  one viewer's cellular connection affects every other viewer (and the
+  sender's own preview) watching at the same time.
+
 ## [1.7.1]
 
 - Fixed a real bug: the main screen could get permanently stuck showing

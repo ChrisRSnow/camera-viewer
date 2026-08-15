@@ -208,6 +208,20 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="@string/settings_video_heading"
+                android:textStyle="bold"
+                android:layout_marginTop="20dp" />
+
+            <CheckBox
+                android:id="@+id/checkCellularQuality"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_cellular_quality_label" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="@string/settings_alert_listening_heading"
                 android:textStyle="bold"
                 android:layout_marginTop="20dp" />

@@ -97,6 +97,7 @@ class SettingsActivity : AppCompatActivity() {
         updateRotationButtonText()
         binding.checkAutoRotation.isChecked = credentialStore.cameraAutoRotationEnabled
         binding.checkInvertRotation.isChecked = credentialStore.cameraAutoRotationInverted
+        binding.checkCellularQuality.isChecked = credentialStore.cellularQualityReductionEnabled
 
         applyRoleVisibility()
 
@@ -195,6 +196,7 @@ class SettingsActivity : AppCompatActivity() {
         credentialStore.cameraRotationDegrees = cameraRotationDegrees
         credentialStore.cameraAutoRotationEnabled = binding.checkAutoRotation.isChecked
         credentialStore.cameraAutoRotationInverted = binding.checkInvertRotation.isChecked
+        credentialStore.cellularQualityReductionEnabled = binding.checkCellularQuality.isChecked
         // "As of right now, this rotation value is correct for the phone's
         // current physical orientation" — the calibration point
         // auto-rotation tracks relative to. Only meaningful if a sensor

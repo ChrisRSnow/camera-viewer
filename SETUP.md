@@ -116,6 +116,15 @@ Then, in Settings, fill in:
   5 — see the note on stuck autofocus below), camera rotation (see
   [§6](#6-camera-rotation-sender-phones-only) if the sender phone isn't
   mounted the way it was held during setup)
+- **Viewer-only**: "Reduce camera quality on cellular" — off by default.
+  Turning it on asks the sender to drop resolution while *this* phone is
+  on cellular data, restoring it when back on Wi-Fi. Worth understanding
+  before enabling: camera resolution isn't per-viewer, it's a property of
+  the sender's one camera app — if anyone else is watching the same
+  sender at the same time (including the sender's own local preview),
+  your phone switching to cellular lowers *their* quality too, not just
+  yours. Fine for a single-viewer setup, worth thinking about for a
+  multi-viewer one.
 
 Save. On a correctly configured sender, detection and the snapshot server
 start automatically — you don't need to keep tapping "Start" every time

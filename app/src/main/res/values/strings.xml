@@ -55,6 +55,8 @@
     <string name="settings_camera_rotation_label">Camera rotation (how this phone is physically mounted) — tap to change, or set below to correct for the phone\'s CURRENT orientation before enabling auto-detect</string>
     <string name="settings_auto_rotation_label">Auto-detect camera orientation (correct automatically as the phone is turned)</string>
     <string name="settings_invert_rotation_label">Invert auto-rotation direction (tick if it goes the wrong way)</string>
+    <string name="settings_video_heading">Video</string>
+    <string name="settings_cellular_quality_label">Reduce camera quality on cellular (restores on Wi-Fi). Affects every viewer watching this camera, not just this phone — see SETUP.md.</string>
     <string name="camera_rotation_value_0">0°</string>
     <string name="camera_rotation_value_90">90°</string>
     <string name="camera_rotation_value_180">180°</string>

@@ -119,6 +119,18 @@ class SecureCredentialStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_ROTATION_INVERTED, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_ROTATION_INVERTED, value).apply()
 
+    /**
+     * Viewer-role: whether this phone should ask the sender to drop
+     * camera resolution while this phone is on cellular, restoring it
+     * when back on Wi-Fi. Off by default — resolution is a property of
+     * the shared camera, not per-viewer, so enabling this on one phone
+     * affects every other viewer (and the sender's own preview) too if
+     * anyone's watching at the same time. See NetworkQualityMonitor.
+     */
+    var cellularQualityReductionEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CELLULAR_QUALITY_REDUCTION, false)
+        set(value) = prefs.edit().putBoolean(KEY_CELLULAR_QUALITY_REDUCTION, value).apply()
+
     fun alertTargetList(): List<String> =
         alertTargets.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -148,6 +160,7 @@ class SecureCredentialStore(context: Context) {
         private const val KEY_AUTO_ROTATION_ENABLED = "camera_auto_rotation_enabled"
         private const val KEY_ROTATION_CALIBRATED_BUCKET = "camera_rotation_calibrated_bucket"
         private const val KEY_AUTO_ROTATION_INVERTED = "camera_auto_rotation_inverted"
+        private const val KEY_CELLULAR_QUALITY_REDUCTION = "cellular_quality_reduction_enabled"
 
         const val ROLE_SENDER = "sender"
         const val ROLE_VIEWER = "viewer"

@@ -71,6 +71,18 @@ object CameraControlClient {
         setParam(ip, username, password, "rotate", degrees.toString(), path = "/")
     }
 
+    /**
+     * Sets camera capture resolution (`low`/`medium`/`high`/`auto`/`max`/
+     * `WxH`, per the camera app's docs) — used for cellular-aware quality
+     * (see NetworkQualityMonitor). Same shared-camera caveat as rotation:
+     * this changes what the sender's own preview and detection see too,
+     * and every other viewer's stream, not just the requesting one — the
+     * camera app has no concept of per-viewer resolution.
+     */
+    suspend fun setResolution(ip: String, username: String, password: String, level: String) {
+        setParam(ip, username, password, "resolution", level, path = "/")
+    }
+
     private suspend fun setParam(ip: String, username: String, password: String, key: String, value: String, path: String) =
         withContext(Dispatchers.IO) {
             var conn: HttpsURLConnection? = null

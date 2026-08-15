@@ -34,9 +34,17 @@ import java.net.Socket
  * Same trust model as AlertReceiverService/SnapshotServerService: plain
  * HTTP, no auth, Tailscale membership is the access control.
  *
- * Route: GET /video/mjpeg → multipart/x-mixed-replace MJPEG stream, one
- * boundary chunk per frame published to LiveFrameBus, for as long as the
- * client stays connected.
+ * Routes:
+ *  - GET /video/mjpeg → multipart/x-mixed-replace MJPEG stream, one
+ *    boundary chunk per frame published to LiveFrameBus, for as long as
+ *    the client stays connected.
+ *  - POST /quality?level=<value> → sets the camera app's capture
+ *    resolution (`low`, `auto`, etc. — see CameraControlClient.setResolution)
+ *    for cellular-aware quality (NetworkQualityMonitor, viewer-side). Not
+ *    per-viewer — the camera app has exactly one resolution at a time, so
+ *    this affects every connected viewer and the sender's own preview,
+ *    not just whoever requested it. 200 if applied, 400 if `level` is
+ *    missing/empty.
  */
 class VideoRelayServerService : Service() {
 
@@ -114,19 +122,50 @@ class VideoRelayServerService : Service() {
                     val line = readLine(input)
                     if (line.isEmpty() || line == "\r\n") break
                 }
-                val path = requestLine.split(" ").getOrNull(1)?.substringBefore("?") ?: "/"
-                if (path != "/video/mjpeg") {
-                    it.getOutputStream().apply {
-                        write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
-                        flush()
+                val parts = requestLine.split(" ")
+                val method = parts.getOrNull(0) ?: "GET"
+                val rawPath = parts.getOrNull(1) ?: "/"
+                val path = rawPath.substringBefore("?")
+                when {
+                    method == "GET" && path == "/video/mjpeg" -> streamToClient(it)
+                    method == "POST" && path == "/quality" -> handleSetQuality(it, rawPath.substringAfter("?", ""))
+                    else -> {
+                        it.getOutputStream().apply {
+                            write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                            flush()
+                        }
                     }
-                    return@use
                 }
-                streamToClient(it)
             } catch (e: Exception) {
                 Log.w(TAG, "relay client error: ${e.message}")
             }
         }
+    }
+
+    private suspend fun handleSetQuality(socket: Socket, query: String) {
+        val level = query.split("&")
+            .map { it.split("=", limit = 2) }
+            .firstOrNull { it.getOrNull(0) == "level" }
+            ?.getOrNull(1)
+        val respond: (Int) -> Unit = { code ->
+            socket.getOutputStream().apply {
+                write("HTTP/1.1 $code ${if (code == 200) "OK" else "Bad Request"}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                flush()
+            }
+        }
+        if (level.isNullOrBlank()) {
+            respond(400)
+            return
+        }
+        val credentialStore = SecureCredentialStore(applicationContext)
+        val username = credentialStore.cameraUsername
+        val password = credentialStore.cameraPassword
+        if (username.isNullOrBlank() || password.isNullOrBlank()) {
+            respond(400)
+            return
+        }
+        runCatching { CameraControlClient.setResolution(LOCAL_CAMERA_IP, username, password, level) }
+        respond(200)
     }
 
     private suspend fun streamToClient(socket: Socket) {
@@ -186,6 +225,7 @@ class VideoRelayServerService : Service() {
         private const val TAG = "VideoRelayServerService"
         const val ACTION_STOP = "com.cameraviewer.app.action.STOP_VIDEO_RELAY"
         const val PORT = 8792
+        private const val LOCAL_CAMERA_IP = "127.0.0.1"
         private const val BOUNDARY = "frame"
         private const val CHANNEL_STATUS = "video_relay_status"
         private const val NOTIF_ID = 8

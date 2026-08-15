@@ -90,6 +90,19 @@ aren't documented anywhere in the camera app itself:
   this. `cameraAutoRotationInverted` is the escape hatch if the guessed
   direction turns out backwards on a given phone: flips the sign rather
   than requiring a code change.
+- **Cellular-aware quality** (`SecureCredentialStore.cellularQualityReductionEnabled`,
+  viewer-role Settings toggle, off by default) — `NetworkQualityMonitor`
+  watches this viewer phone's active network transport via
+  `ConnectivityManager`, and on switching between Wi-Fi and cellular,
+  `RelayQualityClient` POSTs to a new `VideoRelayServerService` route
+  (`POST /quality?level=<value>`), which calls
+  `CameraControlClient.setResolution()` against the local camera app —
+  `low` on cellular, `auto` back on Wi-Fi. Same shared-camera caveat as
+  rotation and remote zoom: resolution is a property of the one camera
+  app, not per-viewer, so one viewer's cellular connection lowers quality
+  for every other viewer (and the sender's own preview) watching at the
+  same time — off by default specifically because of this, not because
+  it's unreliable.
 - **Autofocus can get stuck with no automatic correction** — observed on
   real hardware: the lens simply stopped refocusing on scene changes, and
   only cleared when the phone was physically moved (jostling the lens
@@ -453,11 +466,13 @@ build will fail without it.
 | `CameraMonitorService.kt` | Viewer role: streams video from a sender's relay (§4), explicit-target or discovery-based |
 | `AlertReceiverService.kt` | Viewer role: listens on :8790 for pushed alerts, fires full-screen notification |
 | `AlertClient.kt` | Sender-side: POSTs `{label, ip, ts}` to configured viewer targets |
-| `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1); sets `rotate=` for camera rotation |
+| `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1); sets `rotate=` for camera rotation; sets `resolution=` for cellular-aware quality |
 | `CameraOrientationMonitor.kt` | Sender-side: accelerometer-based physical orientation tracking, debounced to 90° bucket changes, for auto-rotation (§1) |
+| `NetworkQualityMonitor.kt` | Viewer-side: watches Wi-Fi vs. cellular transport via `ConnectivityManager`, for cellular-aware quality (§1) |
+| `RelayQualityClient.kt` | Viewer-side: POSTs a quality-level change to a sender's `VideoRelayServerService` (§1) |
 | `PersonDetector.kt` | TFLite EfficientDet-Lite0 wrapper, debounced person detection |
 | `MjpegClient.kt` | Raw-socket MJPEG stream consumer — TLS `:4444` for the camera app, or plain `:8792` for a sender's relay (§4) |
-| `VideoRelayServerService.kt` | Sender-side: re-serves `LiveFrameBus` frames to remote viewers over `:8792`, so they never connect to the camera app directly (§4) |
+| `VideoRelayServerService.kt` | Sender-side: re-serves `LiveFrameBus` frames to remote viewers over `:8792`, so they never connect to the camera app directly (§4); also `POST /quality` for cellular-aware quality (§1) |
 | `LiveFrameBus.kt` | In-process `SharedFlow` handing frames from `CameraDetectionService`'s one camera-app connection to `VideoRelayServerService`'s many viewer connections |
 | `CameraProber.kt` | TLS-connects to `:4444`, checks cert subject for the camera app's identity |
 | `ViewerProber.kt` | TCP-connects to `:8790`, checks whether anything's listening (weaker signal than CameraProber) |

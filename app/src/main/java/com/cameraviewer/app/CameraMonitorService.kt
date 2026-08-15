@@ -66,6 +66,7 @@ class CameraMonitorService : Service() {
     val isMonitoring: StateFlow<Boolean> = _isMonitoring.asStateFlow()
 
     private var cameraLabel: String = "camera"
+    private var networkQualityMonitor: NetworkQualityMonitor? = null
 
     /** The explicit target (if any) the current monitorJob was started with — lets startMonitoring tell "already watching this camera" apart from "a different camera's alert just came in, switch". */
     private var currentTargetIp: String? = null
@@ -96,6 +97,7 @@ class CameraMonitorService : Service() {
 
     override fun onDestroy() {
         monitorJob?.cancel()
+        networkQualityMonitor?.stop()
         scope.cancel()
         super.onDestroy()
     }
@@ -165,52 +167,73 @@ class CameraMonitorService : Service() {
             ip = discovered
         }
 
-        val client = MjpegClient()
-        var reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
-        // currentCoroutineContext() is itself a suspend function — capture it
-        // once here so the plain (non-suspend) isActive lambda below can read
-        // .isActive off the captured context instead of calling it directly.
-        val loopContext = currentCoroutineContext()
+        // Cellular-aware quality: opt-in (see SecureCredentialStore's field
+        // comment for why — resolution is shared across every viewer and
+        // the sender's own preview, not per-viewer). registerDefaultNetworkCallback
+        // delivers an initial onCapabilitiesChanged for whatever network is
+        // already active, so this also sets the correct starting quality,
+        // not just reacting to future changes. Wrapped in try/finally below
+        // (not just onDestroy) so switching cameras mid-stream — startMonitoring
+        // cancelling this coroutine to restart with a new target — doesn't
+        // leak a callback still registered against the old target's IP.
+        if (credentialStore.cellularQualityReductionEnabled) {
+            networkQualityMonitor = NetworkQualityMonitor(applicationContext) { isCellular ->
+                scope.launch { RelayQualityClient.setQuality(ip, if (isCellular) "low" else "auto") }
+            }.also { it.start() }
+        }
 
-        while (loopContext.isActive) {
-            updateStatus("Connecting to $ip…")
-            try {
-                client.streamFrames(
-                    ip = ip,
-                    username = username,
-                    password = password,
-                    isActive = { loopContext.isActive },
-                    // Connects to the sender's own VideoRelayServerService,
-                    // not the third-party camera app directly (which is
-                    // TLS-only on port 4444). A remote viewer opening its
-                    // own direct connection to the camera app used to be
-                    // exactly the second-simultaneous-connection problem
-                    // that degrades its encoder after a few minutes — see
-                    // CameraDetectionService's doc comment.
-                    useTls = false,
-                    port = VideoRelayServerService.PORT,
-                ) { frameBytes ->
-                    reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS // reset backoff on a successful frame
-                    val bitmap = BitmapFactory.decodeByteArray(frameBytes, 0, frameBytes.size)
-                    if (bitmap != null) {
-                        _latestFrame.value = bitmap
-                        updateStatus("Live — $cameraLabel")
+        try {
+            val client = MjpegClient()
+            var reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
+            // currentCoroutineContext() is itself a suspend function — capture
+            // it once here so the plain (non-suspend) isActive lambda below
+            // can read .isActive off the captured context instead of calling
+            // it directly.
+            val loopContext = currentCoroutineContext()
+
+            while (loopContext.isActive) {
+                updateStatus("Connecting to $ip…")
+                try {
+                    client.streamFrames(
+                        ip = ip,
+                        username = username,
+                        password = password,
+                        isActive = { loopContext.isActive },
+                        // Connects to the sender's own VideoRelayServerService,
+                        // not the third-party camera app directly (which is
+                        // TLS-only on port 4444). A remote viewer opening its
+                        // own direct connection to the camera app used to be
+                        // exactly the second-simultaneous-connection problem
+                        // that degrades its encoder after a few minutes — see
+                        // CameraDetectionService's doc comment.
+                        useTls = false,
+                        port = VideoRelayServerService.PORT,
+                    ) { frameBytes ->
+                        reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS // reset backoff on a successful frame
+                        val bitmap = BitmapFactory.decodeByteArray(frameBytes, 0, frameBytes.size)
+                        if (bitmap != null) {
+                            _latestFrame.value = bitmap
+                            updateStatus("Live — $cameraLabel")
+                        }
+                        // A single malformed/partial frame is normal (chunk
+                        // boundary landed mid-frame) — decodeByteArray just
+                        // returns null and the next frame carries on, same
+                        // "silently skip one bad frame" behavior as app.js.
                     }
-                    // A single malformed/partial frame is normal (chunk
-                    // boundary landed mid-frame) — decodeByteArray just
-                    // returns null and the next frame carries on, same
-                    // "silently skip one bad frame" behavior as app.js.
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "stream error: ${e.message}")
+                    updateStatus("Reconnecting in ${reconnectDelayMs / 1000}s…")
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "stream error: ${e.message}")
-                updateStatus("Reconnecting in ${reconnectDelayMs / 1000}s…")
+                delay(reconnectDelayMs)
+                // Exponential backoff, capped — same reasoning as app.js: don't
+                // hammer the camera app's auth rate-limiter while it's down.
+                reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(MAX_RECONNECT_DELAY_MS)
             }
-            delay(reconnectDelayMs)
-            // Exponential backoff, capped — same reasoning as app.js: don't
-            // hammer the camera app's auth rate-limiter while it's down.
-            reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(MAX_RECONNECT_DELAY_MS)
+        } finally {
+            networkQualityMonitor?.stop()
+            networkQualityMonitor = null
         }
     }
 
