@@ -200,6 +200,14 @@ class SettingsActivity : AppCompatActivity() {
         // IP Camera running" check needed, CameraDetectionService retries
         // with backoff until its local connection succeeds either way.
         if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER && credentialStore.isCameraRoleConfigured) {
+            // Stop-then-start rather than just start: CameraDetectionService's
+            // onStartCommand no-ops if a connection is already running, so
+            // anything baked into the connection itself at connect time
+            // (rotation, camera credentials) would otherwise silently sit
+            // saved-but-unused until some unrelated future reconnect
+            // happened to occur - explicitly restarting makes a changed
+            // setting take effect immediately instead.
+            startService(Intent(this, CameraDetectionService::class.java).apply { action = CameraDetectionService.ACTION_STOP })
             ContextCompat.startForegroundService(this, Intent(this, CameraDetectionService::class.java))
             ContextCompat.startForegroundService(this, Intent(this, SnapshotServerService::class.java))
             ContextCompat.startForegroundService(this, Intent(this, VideoRelayServerService::class.java))

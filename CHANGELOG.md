@@ -12,6 +12,16 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.6.1]
+
+- Fixed Settings not actually applying camera rotation (or credential)
+  changes while detection was already running: `CameraDetectionService`
+  only starts a fresh connection if one isn't already active, so Save was
+  persisting the new value without ever reconnecting to use it. Save now
+  explicitly restarts the camera connection when sender-configured, so a
+  rotation change takes effect immediately instead of silently waiting on
+  some unrelated future reconnect.
+
 ## [1.6.0]
 
 - Added a "Camera rotation" setting (sender section) — corrects for a
