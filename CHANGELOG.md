@@ -12,6 +12,22 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.7.0]
+
+- Added automatic camera rotation ("Auto-detect camera orientation" in
+  Settings, sender section): as the sender phone is physically turned,
+  rotation correction now applies itself instead of needing the manual
+  cycling button every time. Tracks orientation via the accelerometer
+  (`CameraOrientationMonitor`), relative to whatever value you last
+  manually set for the phone's current orientation — not a fixed
+  sensor-to-rotation formula, since that depends on how a given phone's
+  camera sensor is physically mounted and can't be verified without
+  testing on real hardware. If the auto-corrected direction turns out
+  backwards on your phone, tick "Invert auto-rotation direction" rather
+  than needing a code change. To set up: orient the phone normally,
+  manually set rotation with the existing button until the image looks
+  right, tick "Auto-detect," Save.
+
 ## [1.6.2]
 
 - Fixed a real regression from 1.6.0: appending `rotate=<degrees>`

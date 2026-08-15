@@ -39,6 +39,14 @@ class SettingsActivity : AppCompatActivity() {
     // its own persisted-immediately toggle, despite the click-to-cycle UI.
     private var cameraRotationDegrees = 0
 
+    // Tracks the phone's live physical orientation while this screen is
+    // open, purely so Save can capture "what orientation was the phone in
+    // when this rotation value was set" as the calibration point
+    // auto-rotation tracks relative to (see CameraDetectionService). -1
+    // until the first sensor reading arrives (e.g. phone lying flat).
+    private var currentOrientationBucket = -1
+    private var orientationMonitor: CameraOrientationMonitor? = null
+
     private var cameraDetectionService: CameraDetectionService? = null
     private var cameraDetectionBound = false
 
@@ -87,6 +95,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.editRefocusInterval.setText(credentialStore.refocusIntervalMinutes.toString())
         cameraRotationDegrees = credentialStore.cameraRotationDegrees
         updateRotationButtonText()
+        binding.checkAutoRotation.isChecked = credentialStore.cameraAutoRotationEnabled
+        binding.checkInvertRotation.isChecked = credentialStore.cameraAutoRotationInverted
 
         applyRoleVisibility()
 
@@ -108,6 +118,7 @@ class SettingsActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraDetectionService::class.java), cameraDetectionConnection, Context.BIND_AUTO_CREATE)
         bindService(Intent(this, AlertReceiverService::class.java), alertReceiverConnection, Context.BIND_AUTO_CREATE)
+        orientationMonitor = CameraOrientationMonitor(this) { bucket -> currentOrientationBucket = bucket }.also { it.start() }
     }
 
     override fun onStop() {
@@ -119,6 +130,8 @@ class SettingsActivity : AppCompatActivity() {
             unbindService(alertReceiverConnection)
             alertReceiverBound = false
         }
+        orientationMonitor?.stop()
+        orientationMonitor = null
         super.onStop()
     }
 
@@ -180,6 +193,17 @@ class SettingsActivity : AppCompatActivity() {
         credentialStore.refocusIntervalMinutes = binding.editRefocusInterval.text.toString().trim().toIntOrNull()
             ?.coerceAtLeast(1) ?: SecureCredentialStore.DEFAULT_REFOCUS_INTERVAL_MINUTES
         credentialStore.cameraRotationDegrees = cameraRotationDegrees
+        credentialStore.cameraAutoRotationEnabled = binding.checkAutoRotation.isChecked
+        credentialStore.cameraAutoRotationInverted = binding.checkInvertRotation.isChecked
+        // "As of right now, this rotation value is correct for the phone's
+        // current physical orientation" — the calibration point
+        // auto-rotation tracks relative to. Only meaningful if a sensor
+        // reading actually arrived (phone lying perfectly flat never
+        // fires one); falls back to 0 rather than leaving the previous
+        // calibration stale against a value that's since changed.
+        if (currentOrientationBucket >= 0) {
+            credentialStore.cameraRotationCalibratedBucket = currentOrientationBucket
+        }
         // Credentials changed — a cached IP found under old/different
         // credentials shouldn't be trusted until discovery re-confirms it.
         credentialStore.lastKnownCameraIp = null

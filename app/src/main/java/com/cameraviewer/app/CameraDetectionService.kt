@@ -77,6 +77,7 @@ class CameraDetectionService : Service() {
     val status: StateFlow<String> = _status.asStateFlow()
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
+    private var orientationMonitor: CameraOrientationMonitor? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): CameraDetectionService = this@CameraDetectionService
@@ -95,6 +96,7 @@ class CameraDetectionService : Service() {
             job?.cancel()
             job = null
             _isRunning.value = false
+            stopOrientationMonitor()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -108,6 +110,7 @@ class CameraDetectionService : Service() {
             )
             _isRunning.value = true
             job = scope.launch { runDetectionLoop() }
+            startOrientationMonitorIfEnabled()
         }
         return START_STICKY
     }
@@ -115,8 +118,44 @@ class CameraDetectionService : Service() {
     override fun onDestroy() {
         job?.cancel()
         _isRunning.value = false
+        stopOrientationMonitor()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Applies rotation automatically as the phone's physical orientation
+     * changes, relative to a user-verified calibration point rather than a
+     * fixed sensor→rotate formula — see SecureCredentialStore's field
+     * comments for why. Only active when the "Auto-detect camera
+     * orientation" Settings toggle is on; otherwise rotation stays exactly
+     * as manually set, unchanged by device orientation.
+     */
+    private fun startOrientationMonitorIfEnabled() {
+        if (!credentialStore.cameraAutoRotationEnabled || orientationMonitor != null) return
+        orientationMonitor = CameraOrientationMonitor(applicationContext) { bucket ->
+            scope.launch { applyAutoRotation(bucket) }
+        }.also { it.start() }
+    }
+
+    private fun stopOrientationMonitor() {
+        orientationMonitor?.stop()
+        orientationMonitor = null
+    }
+
+    private suspend fun applyAutoRotation(currentBucket: Int) {
+        val username = credentialStore.cameraUsername ?: return
+        val password = credentialStore.cameraPassword ?: return
+        val calibratedBucket = credentialStore.cameraRotationCalibratedBucket
+        val calibratedRotation = credentialStore.cameraRotationDegrees
+        val rawDelta = if (credentialStore.cameraAutoRotationInverted) {
+            calibratedBucket - currentBucket
+        } else {
+            currentBucket - calibratedBucket
+        }
+        val delta = ((rawDelta % 360) + 360) % 360
+        val newRotation = ((calibratedRotation + delta) % 360 + 360) % 360
+        runCatching { CameraControlClient.setRotation(LOOPBACK_IP, username, password, newRotation) }
     }
 
     private suspend fun runDetectionLoop() {

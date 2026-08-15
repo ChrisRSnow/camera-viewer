@@ -74,6 +74,22 @@ aren't documented anywhere in the camera app itself:
   frames — no rotation logic needed anywhere else in this app. Discrete
   values only (not arbitrary degrees): the camera app's rotation is a
   rotation of the encoder output, not a free angle.
+- **Auto-rotation** (`SecureCredentialStore.cameraAutoRotationEnabled`,
+  Settings toggle) — `CameraOrientationMonitor` watches the phone's
+  physical orientation via `OrientationEventListener` (accelerometer-based,
+  works from a background Service with no Activity/Window needed) and
+  debounces raw sensor jitter into "the device moved to a new 90° bucket."
+  Deliberately **relative to a calibration point** rather than a fixed
+  sensor→rotate-value formula: `cameraRotationCalibratedBucket` records
+  which orientation bucket the phone was physically in the moment
+  `cameraRotationDegrees` was last saved, and as the live bucket diverges
+  from that, the applied rotation shifts by the same amount. This exists
+  because the actual sign of that relationship depends on how a given
+  phone's camera sensor is mounted relative to its body — verifiable only
+  by testing on real hardware, which wasn't available while building
+  this. `cameraAutoRotationInverted` is the escape hatch if the guessed
+  direction turns out backwards on a given phone: flips the sign rather
+  than requiring a code change.
 - **Autofocus can get stuck with no automatic correction** — observed on
   real hardware: the lens simply stopped refocusing on scene changes, and
   only cleared when the phone was physically moved (jostling the lens
@@ -437,7 +453,8 @@ build will fail without it.
 | `CameraMonitorService.kt` | Viewer role: streams video from a sender's relay (§4), explicit-target or discovery-based |
 | `AlertReceiverService.kt` | Viewer role: listens on :8790 for pushed alerts, fires full-screen notification |
 | `AlertClient.kt` | Sender-side: POSTs `{label, ip, ts}` to configured viewer targets |
-| `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1) |
+| `CameraControlClient.kt` | Sender-side: periodically nudges the local camera app's `focus_distance` param to clear stuck autofocus (§1); sets `rotate=` for camera rotation |
+| `CameraOrientationMonitor.kt` | Sender-side: accelerometer-based physical orientation tracking, debounced to 90° bucket changes, for auto-rotation (§1) |
 | `PersonDetector.kt` | TFLite EfficientDet-Lite0 wrapper, debounced person detection |
 | `MjpegClient.kt` | Raw-socket MJPEG stream consumer — TLS `:4444` for the camera app, or plain `:8792` for a sender's relay (§4) |
 | `VideoRelayServerService.kt` | Sender-side: re-serves `LiveFrameBus` frames to remote viewers over `:8792`, so they never connect to the camera app directly (§4) |

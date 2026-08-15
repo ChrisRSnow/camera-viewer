@@ -87,6 +87,38 @@ class SecureCredentialStore(context: Context) {
         get() = prefs.getInt(KEY_CAMERA_ROTATION, 0)
         set(value) = prefs.edit().putInt(KEY_CAMERA_ROTATION, value).apply()
 
+    /**
+     * Whether OrientationEventListener-driven auto-rotation is on. When
+     * true, cameraRotationDegrees is applied at cameraRotationCalibratedBucket
+     * (the phone's physical orientation when it was set/saved) and shifted
+     * by the same relative amount as the phone's orientation changes,
+     * rather than reapplied verbatim regardless of orientation. See
+     * CameraDetectionService's orientation handling for why this is
+     * relative-to-calibration rather than an absolute sensor→rotate
+     * formula: front/back camera sensor mounting varies by device, so a
+     * fixed formula risks getting the direction backwards on hardware
+     * this wasn't tested against.
+     */
+    var cameraAutoRotationEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_ROTATION_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_ROTATION_ENABLED, value).apply()
+
+    /** The device-orientation bucket (0/90/180/270) active when cameraRotationDegrees was last saved — the calibration point auto-rotation tracks relative to. */
+    var cameraRotationCalibratedBucket: Int
+        get() = prefs.getInt(KEY_ROTATION_CALIBRATED_BUCKET, 0)
+        set(value) = prefs.edit().putInt(KEY_ROTATION_CALIBRATED_BUCKET, value).apply()
+
+    /**
+     * Whether the sensor→rotate-value direction should be flipped. Exists
+     * because that direction depends on how this specific phone's camera
+     * sensor is physically mounted relative to its body, which can't be
+     * verified without live on-device testing — this is the escape hatch
+     * if auto-rotation turns out to go the wrong way.
+     */
+    var cameraAutoRotationInverted: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_ROTATION_INVERTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_ROTATION_INVERTED, value).apply()
+
     fun alertTargetList(): List<String> =
         alertTargets.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -113,6 +145,9 @@ class SecureCredentialStore(context: Context) {
         private const val KEY_SNAPSHOT_RETENTION = "snapshot_retention_count"
         private const val KEY_REFOCUS_INTERVAL = "refocus_interval_minutes"
         private const val KEY_CAMERA_ROTATION = "camera_rotation_degrees"
+        private const val KEY_AUTO_ROTATION_ENABLED = "camera_auto_rotation_enabled"
+        private const val KEY_ROTATION_CALIBRATED_BUCKET = "camera_rotation_calibrated_bucket"
+        private const val KEY_AUTO_ROTATION_INVERTED = "camera_auto_rotation_inverted"
 
         const val ROLE_SENDER = "sender"
         const val ROLE_VIEWER = "viewer"
