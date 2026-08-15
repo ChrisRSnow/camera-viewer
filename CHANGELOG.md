@@ -12,6 +12,15 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.3.3]
+
+- Fixed a real layout bug: the main screen's bottom button row split space
+  unevenly (one weighted button vs. two wrap-content ones), and on some
+  screen widths that squeezed the weighted button down to almost nothing,
+  making Android wrap its text one character per line. All three buttons
+  now split the row evenly and use smaller text (~25% smaller), which both
+  fixes the wrapping and gives a more compact control bar.
+
 ## [1.3.2]
 
 - Hid the "Start monitoring" button on the main screen for sender-role
