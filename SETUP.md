@@ -115,7 +115,12 @@ Then, in Settings, fill in:
   retention count (default 20), auto-refocus interval in minutes (default
   5 — see the note on stuck autofocus below), camera rotation (see
   [§6](#6-camera-rotation-sender-phones-only) if the sender phone isn't
-  mounted the way it was held during setup)
+  mounted the way it was held during setup), "Enable audio from
+  microphone" — off by default, **experimental**: this opens a second
+  connection to the camera app on top of the video one, and it isn't
+  known whether that risks the same encoder instability multiple video
+  connections cause (§1 in ARCHITECTURE.md) — try it, and turn it back
+  off if video becomes unreliable after enabling it
 - **Viewer-only**: "Reduce camera quality on cellular" — off by default.
   Turning it on asks the sender to drop resolution while *this* phone is
   on cellular data, restoring it when back on Wi-Fi. Worth understanding
@@ -252,9 +257,10 @@ it's the actual mechanism that matters here.
 
 ## 8. Networking gotchas
 
-- **Ports 8790 (alerts), 8791 (snapshots), and 8792 (video relay)** need to
-  actually be reachable between phones over Tailscale — this normally just
-  works with Tailscale's default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
+- **Ports 8790 (alerts), 8791 (snapshots), 8792 (video relay), and 8793
+  (audio relay, only if enabled)** need to actually be reachable between
+  phones over Tailscale — this normally just works with Tailscale's
+  default settings, but if you've customized [Tailscale ACLs](https://tailscale.com/kb/1018/acls)
   on your tailnet, make sure they don't block phone-to-phone traffic on
   these ports.
 - **This app deliberately allows plain (non-HTTPS) HTTP traffic for

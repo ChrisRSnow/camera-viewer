@@ -48,6 +48,9 @@
     <string name="serving_snapshots">Serving snapshots to viewers</string>
     <string name="channel_video_relay_name">Video relay status</string>
     <string name="relaying_video">Relaying video to viewers</string>
+    <string name="channel_audio_capture_name">Audio capture status</string>
+    <string name="channel_audio_relay_name">Audio relay status</string>
+    <string name="relaying_audio">Relaying audio to viewers</string>
     <string name="settings_snapshot_retention_label">Snapshots to keep</string>
     <string name="settings_snapshot_retention_hint">20</string>
     <string name="settings_refocus_interval_label">Auto-refocus every (minutes)</string>
@@ -55,6 +58,7 @@
     <string name="settings_camera_rotation_label">Camera rotation (how this phone is physically mounted) — tap to change, or set below to correct for the phone\'s CURRENT orientation before enabling auto-detect</string>
     <string name="settings_auto_rotation_label">Auto-detect camera orientation (correct automatically as the phone is turned)</string>
     <string name="settings_invert_rotation_label">Invert auto-rotation direction (tick if it goes the wrong way)</string>
+    <string name="settings_audio_enabled_label">Enable audio from microphone (experimental — opens a second connection to the camera app; disable if video becomes unreliable)</string>
     <string name="settings_video_heading">Video</string>
     <string name="settings_cellular_quality_label">Reduce camera quality on cellular (restores on Wi-Fi). Affects every viewer watching this camera, not just this phone — see SETUP.md.</string>
     <string name="camera_rotation_value_0">0°</string>
@@ -76,6 +80,10 @@
     <!-- Snapshot browsing (viewer role) -->
     <string name="view_snapshots">View snapshots</string>
     <string name="manual_snapshot">Manual snapshot</string>
+    <string name="listen_to_audio">Listen to audio</string>
+    <string name="stop_audio">Stop audio</string>
+    <string name="audio_no_camera">No camera known yet — watch one first</string>
+    <string name="audio_start_failed">Could not start audio — is it enabled on the sender?</string>
     <string name="manual_snapshot_no_camera">No camera known yet — watch one first</string>
     <string name="manual_snapshot_saved">Snapshot saved</string>
     <string name="manual_snapshot_no_frame">Camera hasn\'t sent a frame yet — try again in a moment</string>

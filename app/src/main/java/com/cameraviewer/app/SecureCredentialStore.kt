@@ -131,6 +131,17 @@ class SecureCredentialStore(context: Context) {
         get() = prefs.getBoolean(KEY_CELLULAR_QUALITY_REDUCTION, false)
         set(value) = prefs.edit().putBoolean(KEY_CELLULAR_QUALITY_REDUCTION, value).apply()
 
+    /**
+     * Sender-role: whether AudioCaptureService/AudioRelayServerService run
+     * at all. Off by default — experimental, see AudioCaptureService's
+     * doc comment for the real risk (a second simultaneous connection to
+     * a camera app with documented single-viewer video encoder fragility;
+     * untested whether audio shares any encoder state with video).
+     */
+    var audioEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUDIO_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUDIO_ENABLED, value).apply()
+
     fun alertTargetList(): List<String> =
         alertTargets.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -161,6 +172,7 @@ class SecureCredentialStore(context: Context) {
         private const val KEY_ROTATION_CALIBRATED_BUCKET = "camera_rotation_calibrated_bucket"
         private const val KEY_AUTO_ROTATION_INVERTED = "camera_auto_rotation_inverted"
         private const val KEY_CELLULAR_QUALITY_REDUCTION = "cellular_quality_reduction_enabled"
+        private const val KEY_AUDIO_ENABLED = "audio_enabled"
 
         const val ROLE_SENDER = "sender"
         const val ROLE_VIEWER = "viewer"

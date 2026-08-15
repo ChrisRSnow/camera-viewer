@@ -12,6 +12,27 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.9.0]
+
+- Added audio streaming from the sender's microphone, off by default and
+  marked **experimental**: "Enable audio from microphone" (sender
+  Settings) plus "Listen to audio" (viewer main screen). Follows the same
+  capture→bus→relay pattern already used for video
+  (`AudioCaptureService` → `LiveAudioBus` → `AudioRelayServerService`,
+  `:8793`), so no viewer ever opens a second direct connection to the
+  camera app for audio either. Off by default specifically because this
+  *is* a second simultaneous connection to the camera app on top of the
+  existing video one, and whether that risks the same encoder
+  instability multiple video connections cause is untested on real
+  hardware — disable it first if video becomes unreliable after turning
+  it on.
+- Investigated Android Auto integration: not pursued. Android Auto
+  restricts apps to navigation/audio/messaging categories: live camera
+  video isn't an approved category (and wouldn't be appropriate while
+  driving regardless), and 2026's new video-app support is limited to a
+  small set of Google-partnered entertainment apps, not something this
+  project can integrate with.
+
 ## [1.8.0]
 
 - Added cellular-aware video quality (viewer role, "Reduce camera quality
