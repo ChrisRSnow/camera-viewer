@@ -12,6 +12,18 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.4.1]
+
+- Shrunk the control buttons themselves (height/padding), not just their
+  text — they were still full Material touch-target height (~48dp min)
+  despite the smaller text from 1.3.0/1.3.3.
+- Manual snapshot now distinguishes "camera reachable but has no frame
+  ready yet" (its own local camera connection is momentarily
+  reconnecting — a known flaky condition, see ARCHITECTURE.md §1) from a
+  genuine network failure, instead of one generic "failed — unreachable?"
+  message covering both. Should make it clear whether a retry in a moment
+  is likely to work.
+
 ## [1.4.0]
 
 - Fixed the main screen's control buttons truncating text when squeezed

@@ -69,6 +69,7 @@
     <string name="manual_snapshot">Manual snapshot</string>
     <string name="manual_snapshot_no_camera">No camera known yet — watch one first</string>
     <string name="manual_snapshot_saved">Snapshot saved</string>
+    <string name="manual_snapshot_no_frame">Camera hasn\'t sent a frame yet — try again in a moment</string>
     <string name="manual_snapshot_failed">Snapshot failed — camera unreachable?</string>
     <string name="snapshots_title">Snapshots</string>
     <string name="snapshots_loading">Loading…</string>

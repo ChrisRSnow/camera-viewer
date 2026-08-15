@@ -395,12 +395,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         lifecycleScope.launch {
-            val saved = SnapshotFetcher.triggerManualCapture(ip)
-            Toast.makeText(
-                this@MainActivity,
-                if (saved) R.string.manual_snapshot_saved else R.string.manual_snapshot_failed,
-                Toast.LENGTH_SHORT,
-            ).show()
+            val messageRes = when (SnapshotFetcher.triggerManualCapture(ip)) {
+                ManualCaptureResult.SAVED -> R.string.manual_snapshot_saved
+                ManualCaptureResult.NO_FRAME_AVAILABLE -> R.string.manual_snapshot_no_frame
+                ManualCaptureResult.UNREACHABLE -> R.string.manual_snapshot_failed
+            }
+            Toast.makeText(this@MainActivity, messageRes, Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -12,6 +12,15 @@ import java.net.URL
 data class RemoteSnapshot(val filename: String, val timestampMs: Long)
 
 /**
+ * Distinguishes "reached the camera but it had no frame ready yet" (503 —
+ * the local camera app connection is momentarily reconnecting, a known
+ * flaky condition for this project, see ARCHITECTURE.md §1) from a genuine
+ * network failure, so the UI can tell the user which one actually
+ * happened instead of one generic "failed" message covering both.
+ */
+enum class ManualCaptureResult { SAVED, NO_FRAME_AVAILABLE, UNREACHABLE }
+
+/**
  * Viewer-side client for SnapshotServerService — the pull counterpart to
  * TailscaleDiscovery/CameraProber's connection style: plain HTTP, same
  * trust model as everything else here (Tailscale membership is the access
@@ -46,17 +55,25 @@ object SnapshotFetcher {
      * than other calls here: the sender may wait up to its own
      * CAPTURE_TIMEOUT_MS for a frame before responding.
      */
-    suspend fun triggerManualCapture(ip: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun triggerManualCapture(ip: String): ManualCaptureResult = withContext(Dispatchers.IO) {
         var conn: HttpURLConnection? = null
         try {
             conn = URL("http://$ip:${SnapshotServerService.PORT}/snapshots/capture").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.connectTimeout = CONNECT_TIMEOUT_MS
             conn.readTimeout = MANUAL_CAPTURE_READ_TIMEOUT_MS
-            conn.responseCode == HttpURLConnection.HTTP_OK
+            val code = conn.responseCode
+            when (code) {
+                HttpURLConnection.HTTP_OK -> ManualCaptureResult.SAVED
+                HttpURLConnection.HTTP_UNAVAILABLE -> ManualCaptureResult.NO_FRAME_AVAILABLE
+                else -> {
+                    Log.w(TAG, "manual snapshot trigger for $ip returned HTTP $code")
+                    ManualCaptureResult.UNREACHABLE
+                }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "manual snapshot trigger failed for $ip: ${e.message}")
-            false
+            ManualCaptureResult.UNREACHABLE
         } finally {
             conn?.disconnect()
         }
