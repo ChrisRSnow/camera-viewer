@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -15,8 +16,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
@@ -34,6 +37,12 @@ import java.net.Socket
  *  - GET /snapshots           → JSON array of {filename, timestampMs}, newest first
  *  - GET /snapshots/<file>    → the JPEG bytes, image/jpeg
  *  - DELETE /snapshots/<file> → deletes it, 200 if deleted / 404 if not found
+ *  - POST /snapshots/capture  → saves a snapshot of whatever LiveFrameBus
+ *    currently holds (the same frame source CameraDetectionService feeds
+ *    the video relay from — see its own doc comment), regardless of
+ *    whether a person was actually detected. A viewer's "Manual snapshot"
+ *    button hits this — 200 if saved, 503 if no frame has arrived within
+ *    CAPTURE_TIMEOUT_MS (camera app unreachable/not yet connected).
  * Anything else → 404. <file> is validated against SnapshotStore's strict
  * naming pattern before ever touching the filesystem — the actual defense
  * against a crafted path-traversal filename, not just a formality.
@@ -105,7 +114,7 @@ class SnapshotServerService : Service() {
         }
     }
 
-    private fun handleClient(socket: Socket) {
+    private suspend fun handleClient(socket: Socket) {
         socket.use {
             try {
                 val input = it.getInputStream()
@@ -122,6 +131,7 @@ class SnapshotServerService : Service() {
                 val path = parts.getOrNull(1)?.substringBefore("?") ?: "/"
                 when {
                     method == "GET" && path == "/snapshots" -> respondJson(it, listJson())
+                    method == "POST" && path == "/snapshots/capture" -> handleManualCapture(it)
                     method == "GET" && path.startsWith("/snapshots/") ->
                         respondFile(it, SnapshotStore.fileFor(applicationContext, path.removePrefix("/snapshots/")))
                     method == "DELETE" && path.startsWith("/snapshots/") -> {
@@ -134,6 +144,22 @@ class SnapshotServerService : Service() {
                 Log.w(TAG, "malformed request: ${e.message}")
             }
         }
+    }
+
+    private suspend fun handleManualCapture(socket: Socket) {
+        val frameBytes = withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { LiveFrameBus.frames.first() }
+        if (frameBytes == null) {
+            respondEmpty(socket, 503, "No frame available")
+            return
+        }
+        val bitmap = BitmapFactory.decodeByteArray(frameBytes, 0, frameBytes.size)
+        if (bitmap == null) {
+            respondEmpty(socket, 500, "Decode failed")
+            return
+        }
+        val credentialStore = SecureCredentialStore(applicationContext)
+        SnapshotStore.save(applicationContext, bitmap, credentialStore.snapshotRetentionCount)
+        respondEmpty(socket, 200)
     }
 
     private fun listJson(): String {
@@ -221,6 +247,7 @@ class SnapshotServerService : Service() {
         private const val TAG = "SnapshotServerService"
         const val ACTION_STOP = "com.cameraviewer.app.action.STOP_SNAPSHOT_SERVER"
         const val PORT = 8791
+        private const val CAPTURE_TIMEOUT_MS = 5_000L
         private const val CHANNEL_STATUS = "snapshot_server_status"
         private const val NOTIF_ID = 7
     }

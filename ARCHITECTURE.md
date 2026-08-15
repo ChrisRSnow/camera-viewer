@@ -308,13 +308,23 @@ pull counterpart to `AlertClient`'s push, same trust model (plain HTTP, no
 auth, Tailscale membership is the access control):
 - `GET /snapshots` → JSON array of `{filename, timestampMs}`, newest first
 - `GET /snapshots/<file>` → the JPEG bytes
+- `POST /snapshots/capture` → saves a snapshot of whatever `LiveFrameBus`
+  currently holds, regardless of whether a person is actually in frame —
+  the backing call for the viewer's "Manual snapshot" button. Waits up to
+  `CAPTURE_TIMEOUT_MS` (5s) for a frame before responding `503`; the
+  Android app doesn't have a synchronous "current frame" accessor
+  (`SharedFlow` has no `.value` the way `StateFlow` does), so this awaits
+  `LiveFrameBus.frames.first()` instead — cheap in practice since replay=1
+  means it resolves immediately whenever a frame has already arrived.
 
 `SnapshotsActivity` (viewer) is the "View Snapshots" button on the main
 screen — fetches the list from `credentialStore.lastKnownCameraIp`,
 fetches every thumbnail concurrently (fine at this scale, ≤ the retention
 limit), and shows plain dynamically-built rows rather than a RecyclerView
 — not worth the extra machinery for ~20 items at most. Tapping a row shows
-the full-size image in a dialog.
+the full-size image in a dialog. The "Manual snapshot" button next to it
+(also main-screen, viewer-role only) calls `SnapshotFetcher.triggerManualCapture()`
+directly — no browsing UI of its own, just a fire-and-toast action.
 
 No video, by design — saving "a few seconds around the moment of
 detection" would need a continuously-buffered rolling frame window and a
@@ -399,7 +409,7 @@ build will fail without it.
 
 | File | Role |
 |---|---|
-| `MainActivity.kt` | Main screen: live feed display (from either service, §4), Start/Stop monitoring, View Snapshots, status + listening pills, first-run role picker, keeps screen on while foregrounded |
+| `MainActivity.kt` | Main screen: live feed display (from either service, §4), Start/Stop monitoring, Manual snapshot, View Snapshots, pinch-to-zoom/pan on the feed (client-side display transform, `ScaleGestureDetector`+`GestureDetector`, double-tap to reset), status + listening pills, first-run role picker, keeps screen on while foregrounded |
 | `SettingsActivity.kt` | All credentials + role-conditional section visibility + manual scan/detection/listening controls + snapshot retention count |
 | `SecureCredentialStore.kt` | EncryptedSharedPreferences wrapper — Tailscale token, camera login, label, alert targets, device role, snapshot retention count |
 | `CameraDetectionService.kt` | Sender role: watches local camera, publishes preview frames, runs `PersonDetector`, fires alerts + saves snapshots |

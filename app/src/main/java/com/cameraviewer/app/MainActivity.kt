@@ -7,8 +7,12 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +27,59 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var credentialStore: SecureCredentialStore
+
+    // Client-side digital zoom/pan on imageFeed — purely a local display
+    // transform on the already-received frame (View.scaleX/scaleY/
+    // translationX/Y), not a request to the sender's real camera zoom.
+    // Simpler and has none of remote zoom's shared-camera-state complications
+    // (multiple viewers, or the sender's own preview/detection, would all be
+    // affected together by a real camera zoom change) — the tradeoff is this
+    // is genuinely just magnifying pixels already sent, not new detail.
+    private var zoomScale = 1f
+    private var panX = 0f
+    private var panY = 0f
+
+    private val scaleGestureDetector by lazy {
+        ScaleGestureDetector(
+            this,
+            object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    zoomScale = (zoomScale * detector.scaleFactor).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                    applyZoomTransform()
+                    return true
+                }
+            },
+        )
+    }
+
+    private val panGestureDetector by lazy {
+        GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                // SimpleOnGestureListener.onDown() returns false by default,
+                // which can stop the detector from reliably forwarding the
+                // rest of the gesture (onScroll/onDoubleTap) — override to
+                // consume it.
+                override fun onDown(e: MotionEvent): Boolean = true
+
+                override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                    if (zoomScale <= 1f) return false
+                    panX -= distanceX
+                    panY -= distanceY
+                    applyZoomTransform()
+                    return true
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    zoomScale = 1f
+                    panX = 0f
+                    panY = 0f
+                    applyZoomTransform()
+                    return true
+                }
+            },
+        )
+    }
 
     private var service: CameraMonitorService? = null
     private var bound = false
@@ -112,6 +169,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnManualSnapshot.setOnClickListener { triggerManualSnapshot() }
+        setupZoomGestures()
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -170,8 +230,12 @@ class MainActivity : AppCompatActivity() {
         // sender-only device, which already shows its own local feed
         // automatically via CameraDetectionService. Tapping it there would
         // just try (and fail) to discover some other camera on the tailnet.
-        binding.btnStartStop.visibility =
-            if (credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER) View.GONE else View.VISIBLE
+        // Same reasoning as btnStartStop: manually snapshotting a *remote*
+        // camera is a viewer-role concept, meaningless on a sender-only
+        // device (which has no "currently watched" camera in this sense).
+        val isSender = credentialStore.deviceRole == SecureCredentialStore.ROLE_SENDER
+        binding.btnStartStop.visibility = if (isSender) View.GONE else View.VISIBLE
+        binding.btnManualSnapshot.visibility = if (isSender) View.GONE else View.VISIBLE
         when (credentialStore.deviceRole) {
             SecureCredentialStore.ROLE_VIEWER ->
                 ContextCompat.startForegroundService(this, Intent(this, AlertReceiverService::class.java))
@@ -296,6 +360,50 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupZoomGestures() {
+        binding.imageFeed.setOnTouchListener { _, event ->
+            scaleGestureDetector.onTouchEvent(event)
+            panGestureDetector.onTouchEvent(event)
+            true
+        }
+    }
+
+    private fun applyZoomTransform() {
+        val view = binding.imageFeed
+        val maxPanX = (view.width * (zoomScale - 1) / 2f).coerceAtLeast(0f)
+        val maxPanY = (view.height * (zoomScale - 1) / 2f).coerceAtLeast(0f)
+        panX = panX.coerceIn(-maxPanX, maxPanX)
+        panY = panY.coerceIn(-maxPanY, maxPanY)
+        view.scaleX = zoomScale
+        view.scaleY = zoomScale
+        view.translationX = panX
+        view.translationY = panY
+    }
+
+    /**
+     * "Manual snapshot" button: asks the currently-watched camera to save
+     * a snapshot of whatever it's seeing right now, regardless of whether
+     * a person is actually in frame — for "I want a record of this moment"
+     * rather than waiting on detection. Saved on the sender's side (same
+     * SnapshotStore/retention as automatic ones), so it shows up in View
+     * Snapshots like any other.
+     */
+    private fun triggerManualSnapshot() {
+        val ip = credentialStore.lastKnownCameraIp
+        if (ip.isNullOrBlank()) {
+            Toast.makeText(this, R.string.manual_snapshot_no_camera, Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch {
+            val saved = SnapshotFetcher.triggerManualCapture(ip)
+            Toast.makeText(
+                this@MainActivity,
+                if (saved) R.string.manual_snapshot_saved else R.string.manual_snapshot_failed,
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     /**
      * Shows the sender's own local camera feed automatically — reuses the
      * same imageFeed/textStatus views CameraMonitorService already updates
@@ -336,5 +444,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_AUTO_CONNECT = "com.cameraviewer.app.extra.AUTO_CONNECT"
         const val EXTRA_CAMERA_IP = "com.cameraviewer.app.extra.CAMERA_IP"
         const val EXTRA_CAMERA_LABEL = "com.cameraviewer.app.extra.CAMERA_LABEL"
+        private const val MIN_ZOOM = 1f
+        private const val MAX_ZOOM = 5f
     }
 }

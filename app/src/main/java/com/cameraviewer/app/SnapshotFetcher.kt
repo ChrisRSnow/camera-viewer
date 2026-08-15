@@ -21,6 +21,7 @@ object SnapshotFetcher {
     private const val TAG = "SnapshotFetcher"
     private const val CONNECT_TIMEOUT_MS = 5_000
     private const val READ_TIMEOUT_MS = 8_000
+    private const val MANUAL_CAPTURE_READ_TIMEOUT_MS = 8_000
 
     suspend fun list(ip: String): List<RemoteSnapshot> = withContext(Dispatchers.IO) {
         val body = getBytes("http://$ip:${SnapshotServerService.PORT}/snapshots") ?: return@withContext emptyList()
@@ -36,6 +37,29 @@ object SnapshotFetcher {
     suspend fun fetchImage(ip: String, filename: String): Bitmap? = withContext(Dispatchers.IO) {
         val bytes = getBytes("http://$ip:${SnapshotServerService.PORT}/snapshots/$filename") ?: return@withContext null
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    /**
+     * Triggers the sender to save a snapshot of whatever it's currently
+     * seeing right now, regardless of whether a person was detected —
+     * the "Manual snapshot" button's backing call. A longer read timeout
+     * than other calls here: the sender may wait up to its own
+     * CAPTURE_TIMEOUT_MS for a frame before responding.
+     */
+    suspend fun triggerManualCapture(ip: String): Boolean = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            conn = URL("http://$ip:${SnapshotServerService.PORT}/snapshots/capture").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = CONNECT_TIMEOUT_MS
+            conn.readTimeout = MANUAL_CAPTURE_READ_TIMEOUT_MS
+            conn.responseCode == HttpURLConnection.HTTP_OK
+        } catch (e: Exception) {
+            Log.w(TAG, "manual snapshot trigger failed for $ip: ${e.message}")
+            false
+        } finally {
+            conn?.disconnect()
+        }
     }
 
     /** Returns true if the sender confirmed deletion (HTTP 200). */

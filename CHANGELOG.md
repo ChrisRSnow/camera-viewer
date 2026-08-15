@@ -12,6 +12,22 @@ browsing (`:8791`). No sender/host mode. See `desktop-viewer/README.md`
 for setup — versioned independently of the Android app's numbers above
 since it's a separate client, not part of the APK.
 
+## [1.4.0]
+
+- Fixed the main screen's control buttons truncating text when squeezed
+  into one row: they now stack vertically (still horizontally-oriented
+  text) using the black space below the video feed, rather than sharing
+  one cramped row.
+- Added a "Manual snapshot" button (viewer role): asks the currently-
+  watched camera to save a snapshot of whatever it's seeing right now,
+  regardless of whether a person is detected. New sender-side endpoint,
+  `POST /snapshots/capture` on `SnapshotServerService`, pulling the
+  current frame from the same `LiveFrameBus` the video relay already uses.
+- Added pinch-to-zoom and pan on the video feed (double-tap to reset).
+  Client-side only — a local display transform on frames already
+  received, not a request to the sender's real camera zoom, so it works
+  independently per viewer with no shared-camera-state complications.
+
 ## [1.3.3]
 
 - Fixed a real layout bug: the main screen's bottom button row split space

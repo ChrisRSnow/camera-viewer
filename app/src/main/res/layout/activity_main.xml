@@ -50,46 +50,50 @@
         android:id="@+id/controlsBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="12dp"
-        android:gravity="center_vertical"
         android:background="@color/controls_background"
         app:layout_constraintBottom_toBottomOf="parent">
 
         <Button
             android:id="@+id/btnStartStop"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
             android:textSize="10.5sp"
             android:paddingVertical="6dp"
-            android:paddingHorizontal="8dp"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="@string/start_monitoring" />
 
         <Button
-            android:id="@+id/btnViewSnapshots"
-            android:layout_width="0dp"
+            android:id="@+id/btnManualSnapshot"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
             android:textSize="10.5sp"
             android:paddingVertical="6dp"
-            android:paddingHorizontal="8dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="@string/manual_snapshot" />
+
+        <Button
+            android:id="@+id/btnViewSnapshots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textSize="10.5sp"
+            android:paddingVertical="6dp"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="@string/view_snapshots" />
 
         <Button
             android:id="@+id/btnSettings"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:textSize="10.5sp"
             android:paddingVertical="6dp"
-            android:paddingHorizontal="8dp"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="@string/settings_title" />

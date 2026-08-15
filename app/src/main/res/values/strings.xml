@@ -66,6 +66,10 @@
 
     <!-- Snapshot browsing (viewer role) -->
     <string name="view_snapshots">View snapshots</string>
+    <string name="manual_snapshot">Manual snapshot</string>
+    <string name="manual_snapshot_no_camera">No camera known yet — watch one first</string>
+    <string name="manual_snapshot_saved">Snapshot saved</string>
+    <string name="manual_snapshot_failed">Snapshot failed — camera unreachable?</string>
     <string name="snapshots_title">Snapshots</string>
     <string name="snapshots_loading">Loading…</string>
     <string name="snapshots_empty">No snapshots yet</string>
